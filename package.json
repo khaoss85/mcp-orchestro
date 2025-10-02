@@ -1,0 +1,30 @@
+{
+  "name": "mcp-coder-expert",
+  "version": "1.0.0",
+  "description": "Basic MCP server with project info tool",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsc && node dist/server.js"
+  },
+  "keywords": [
+    "mcp",
+    "server"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@supabase/supabase-js": "^2.58.0",
+    "dotenv": "^17.2.3",
+    "fast-glob": "^3.3.3",
+    "simple-git": "^3.28.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "typescript": "^5.3.3"
+  }
+}
