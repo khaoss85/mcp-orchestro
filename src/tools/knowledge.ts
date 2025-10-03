@@ -39,6 +39,20 @@ export interface Learning {
   created_at: string;
 }
 
+// Pattern frequency tracking
+export interface PatternFrequency {
+  id: string;
+  pattern: string;
+  frequency: number;
+  last_seen: string;
+  first_seen: string;
+  success_count: number;
+  failure_count: number;
+  improvement_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // Cache TTLs
 const TEMPLATE_CACHE_TTL = 15 * 60 * 1000; // 15 minutes (rarely changes)
 const PATTERN_CACHE_TTL = 15 * 60 * 1000; // 15 minutes (rarely changes)
@@ -309,7 +323,7 @@ export async function searchPatterns(query: string): Promise<Pattern[]> {
   const supabase = getSupabaseClient();
 
   return withRetry(async () => {
-    const lowerQuery = query.toLowerCase();
+    const lowerQuery = query.toLowerCase().replace(/[().,]/g, ' ').trim();
 
     const { data, error } = await supabase
       .from('patterns')
@@ -367,7 +381,7 @@ export async function searchLearnings(query: string, pattern?: string): Promise<
   const supabase = getSupabaseClient();
 
   return withRetry(async () => {
-    const lowerQuery = query.toLowerCase();
+    const lowerQuery = query.toLowerCase().replace(/[().,]/g, ' ').trim();
 
     let dbQuery = supabase
       .from('learnings')
@@ -375,7 +389,8 @@ export async function searchLearnings(query: string, pattern?: string): Promise<
       .or(`context.ilike.%${lowerQuery}%,action.ilike.%${lowerQuery}%,lesson.ilike.%${lowerQuery}%`);
 
     if (pattern) {
-      dbQuery = dbQuery.ilike('pattern', `%${pattern}%`);
+      const sanitizedPattern = pattern.replace(/[().,]/g, ' ').trim();
+      dbQuery = dbQuery.ilike('pattern', `%${sanitizedPattern}%`);
     }
 
     const { data, error } = await dbQuery.order('created_at', { ascending: false });
@@ -509,10 +524,18 @@ export async function getSimilarLearnings(params: {
   const supabase = getSupabaseClient();
 
   return withRetry(async () => {
+    // Limit context to 100 chars to avoid PostgREST query length issues
+    // Remove all special characters that could break SQL parsing
+    const sanitizedContext = context
+      .replace(/[().,\[\]{}#\n\r\t%]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .substring(0, 100);
+
     let query = supabase
       .from('learnings')
       .select('*')
-      .or(`context.ilike.%${context}%,action.ilike.%${context}%,lesson.ilike.%${context}%`);
+      .or(`context.ilike.%${sanitizedContext}%,action.ilike.%${sanitizedContext}%,lesson.ilike.%${sanitizedContext}%`);
 
     if (type) {
       query = query.eq('type', type);
@@ -523,7 +546,12 @@ export async function getSimilarLearnings(params: {
     }
 
     if (pattern) {
-      query = query.ilike('pattern', `%${pattern}%`);
+      const sanitizedPattern = pattern
+        .replace(/[().,\[\]{}#\n\r\t%]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 100);
+      query = query.ilike('pattern', `%${sanitizedPattern}%`);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -532,4 +560,232 @@ export async function getSimilarLearnings(params: {
 
     return data || [];
   });
+}
+
+// Pattern frequency operations
+export async function getTopPatterns(limit: number = 10): Promise<PatternFrequency[]> {
+  const supabase = getSupabaseClient();
+
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from('pattern_frequency')
+      .select('*')
+      .order('frequency', { ascending: false })
+      .order('last_seen', { ascending: false })
+      .limit(limit);
+
+    if (error) throw new Error(`Failed to get top patterns: ${error.message}`);
+
+    return data || [];
+  });
+}
+
+export async function getTrendingPatterns(days: number = 7, limit: number = 10): Promise<{
+  pattern: string;
+  recent_frequency: number;
+  total_frequency: number;
+  success_rate: number;
+  last_seen: string;
+}[]> {
+  const supabase = getSupabaseClient();
+
+  return withRetry(async () => {
+    // Get patterns from last N days
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const { data: recentLearnings, error } = await supabase
+      .from('learnings')
+      .select('pattern')
+      .gte('created_at', cutoffDate.toISOString())
+      .not('pattern', 'is', null);
+
+    if (error) throw new Error(`Failed to get trending patterns: ${error.message}`);
+
+    // Count pattern occurrences in recent learnings
+    const patternCounts = new Map<string, number>();
+    recentLearnings?.forEach((learning: any) => {
+      if (learning.pattern) {
+        patternCounts.set(learning.pattern, (patternCounts.get(learning.pattern) || 0) + 1);
+      }
+    });
+
+    // Get full pattern frequency data for these patterns
+    const trendingPatterns = Array.from(patternCounts.keys());
+
+    if (trendingPatterns.length === 0) {
+      return [];
+    }
+
+    const { data: frequencyData, error: freqError } = await supabase
+      .from('pattern_frequency')
+      .select('*')
+      .in('pattern', trendingPatterns);
+
+    if (freqError) throw new Error(`Failed to get pattern frequency data: ${freqError.message}`);
+
+    // Combine and sort
+    const results = frequencyData?.map((pf: PatternFrequency) => ({
+      pattern: pf.pattern,
+      recent_frequency: patternCounts.get(pf.pattern) || 0,
+      total_frequency: pf.frequency,
+      success_rate: pf.frequency > 0
+        ? Math.round((pf.success_count / pf.frequency) * 100 * 100) / 100
+        : 0,
+      last_seen: pf.last_seen,
+    })) || [];
+
+    return results
+      .sort((a, b) => b.recent_frequency - a.recent_frequency || new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime())
+      .slice(0, limit);
+  });
+}
+
+export async function getPatternStats(pattern: string): Promise<PatternFrequency | null> {
+  const supabase = getSupabaseClient();
+
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from('pattern_frequency')
+      .select('*')
+      .eq('pattern', pattern)
+      .single();
+
+    if (error || !data) return null;
+
+    return data;
+  });
+}
+
+// Failure pattern detection
+export interface FailurePattern {
+  pattern: string;
+  failure_rate: number;
+  failure_count: number;
+  total_count: number;
+  last_failure: string;
+  risk_level: 'high' | 'medium' | 'low';
+  recommendation: string;
+}
+
+export async function detectFailurePatterns(
+  minOccurrences: number = 3,
+  failureThreshold: number = 0.5
+): Promise<FailurePattern[]> {
+  const supabase = getSupabaseClient();
+
+  return withRetry(async () => {
+    // Get patterns with minimum occurrence threshold
+    const { data: patterns, error } = await supabase
+      .from('pattern_frequency')
+      .select('*')
+      .gte('frequency', minOccurrences);
+
+    if (error) throw new Error(`Failed to get patterns: ${error.message}`);
+
+    if (!patterns || patterns.length === 0) {
+      return [];
+    }
+
+    // Filter and analyze patterns with failures
+    const failurePatterns: FailurePattern[] = [];
+
+    for (const pattern of patterns) {
+      const failureRate = pattern.frequency > 0
+        ? pattern.failure_count / pattern.frequency
+        : 0;
+
+      // Only include patterns that meet failure threshold
+      if (failureRate >= failureThreshold) {
+        // Get last failure timestamp
+        const { data: lastFailure } = await supabase
+          .from('learnings')
+          .select('created_at')
+          .eq('pattern', pattern.pattern)
+          .eq('type', 'failure')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        // Determine risk level
+        let riskLevel: 'high' | 'medium' | 'low' = 'low';
+        let recommendation = '';
+
+        if (failureRate >= 0.75) {
+          riskLevel = 'high';
+          recommendation = `⚠️ HIGH RISK: This pattern fails ${Math.round(failureRate * 100)}% of the time. Consider avoiding or redesigning approach.`;
+        } else if (failureRate >= 0.5) {
+          riskLevel = 'medium';
+          recommendation = `⚡ MEDIUM RISK: This pattern has a ${Math.round(failureRate * 100)}% failure rate. Review implementation carefully before use.`;
+        } else {
+          riskLevel = 'low';
+          recommendation = `ℹ️ LOW RISK: This pattern occasionally fails (${Math.round(failureRate * 100)}%). Monitor usage.`;
+        }
+
+        failurePatterns.push({
+          pattern: pattern.pattern,
+          failure_rate: Math.round(failureRate * 100 * 100) / 100,
+          failure_count: pattern.failure_count,
+          total_count: pattern.frequency,
+          last_failure: lastFailure?.created_at || pattern.last_seen,
+          risk_level: riskLevel,
+          recommendation,
+        });
+      }
+    }
+
+    // Sort by failure rate (highest first) and then by total occurrences
+    return failurePatterns.sort((a, b) =>
+      b.failure_rate - a.failure_rate || b.total_count - a.total_count
+    );
+  });
+}
+
+export async function checkPatternRisk(pattern: string): Promise<{
+  is_risky: boolean;
+  risk_level: 'high' | 'medium' | 'low' | 'none';
+  failure_rate: number;
+  recommendation: string;
+  stats: PatternFrequency | null;
+}> {
+  const stats = await getPatternStats(pattern);
+
+  if (!stats || stats.frequency === 0) {
+    return {
+      is_risky: false,
+      risk_level: 'none',
+      failure_rate: 0,
+      recommendation: 'No historical data for this pattern.',
+      stats: null,
+    };
+  }
+
+  const failureRate = stats.failure_count / stats.frequency;
+  let isRisky = false;
+  let riskLevel: 'high' | 'medium' | 'low' | 'none' = 'none';
+  let recommendation = '';
+
+  if (failureRate >= 0.75) {
+    isRisky = true;
+    riskLevel = 'high';
+    recommendation = `⚠️ HIGH RISK: This pattern fails ${Math.round(failureRate * 100)}% of the time (${stats.failure_count}/${stats.frequency}). Strongly recommend avoiding or finding alternative approach.`;
+  } else if (failureRate >= 0.5) {
+    isRisky = true;
+    riskLevel = 'medium';
+    recommendation = `⚡ MEDIUM RISK: This pattern has a ${Math.round(failureRate * 100)}% failure rate (${stats.failure_count}/${stats.frequency}). Proceed with caution and thorough testing.`;
+  } else if (failureRate >= 0.25) {
+    isRisky = true;
+    riskLevel = 'low';
+    recommendation = `ℹ️ LOW RISK: This pattern occasionally fails (${Math.round(failureRate * 100)}%, ${stats.failure_count}/${stats.frequency}). Review past failures before use.`;
+  } else {
+    recommendation = `✅ This pattern has a good success rate (${Math.round((1 - failureRate) * 100)}%). ${stats.success_count} successes out of ${stats.frequency} uses.`;
+  }
+
+  return {
+    is_risky: isRisky,
+    risk_level: riskLevel,
+    failure_rate: Math.round(failureRate * 100 * 100) / 100,
+    recommendation,
+    stats,
+  };
 }

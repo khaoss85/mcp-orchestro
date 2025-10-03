@@ -10,6 +10,7 @@ import { getSupabaseClient } from '../db/supabase.js';
 import { getTask } from './task.js';
 import { emitEvent } from '../db/eventQueue.js';
 import { getSimilarLearnings } from './knowledge.js';
+import { saveDependencies } from './dependencies.js';
 /**
  * Save the analysis performed by Claude Code
  */
@@ -21,33 +22,30 @@ export async function saveTaskAnalysis(params) {
     }
     const supabase = getSupabaseClient();
     try {
-        // 1. Save dependencies to resource graph
-        for (const dep of analysis.dependencies) {
-            // Create or get resource node
-            const { data: existingNode } = await supabase
-                .from('resource_nodes')
-                .select('id')
-                .eq('type', dep.type)
-                .eq('name', dep.name)
-                .single();
-            let nodeId = existingNode?.id;
-            if (!nodeId) {
-                const { data: newNode } = await supabase
-                    .from('resource_nodes')
-                    .insert({
-                    type: dep.type,
-                    name: dep.name,
-                    path: dep.path,
-                })
-                    .select('id')
-                    .single();
-                nodeId = newNode?.id;
-            }
-            // Create edge from task to resource
-            await supabase.from('resource_edges').insert({
+        // 1. Save dependencies to resource graph using optimized saveDependencies function
+        // Transform to AnalyzedResource format with confidence score
+        const analyzedResources = analysis.dependencies.map(dep => ({
+            type: dep.type,
+            name: dep.name,
+            path: dep.path,
+            action: dep.action,
+            confidence: 1.0, // High confidence since this is from manual analysis
+        }));
+        // Save dependencies and detect conflicts
+        const depResult = await saveDependencies(taskId, analyzedResources);
+        if (!depResult.success) {
+            throw new Error(depResult.error || 'Failed to save dependencies');
+        }
+        // Emit guardian event if conflicts detected
+        if (depResult.conflicts && depResult.conflicts.length > 0) {
+            await emitEvent('guardian_intervention', {
                 task_id: taskId,
-                resource_id: nodeId,
-                action_type: dep.action,
+                intervention_type: 'conflict_detected',
+                severity: 'medium',
+                details: {
+                    conflicts: depResult.conflicts,
+                    message: `${depResult.conflicts.length} resource conflicts detected`,
+                },
             });
         }
         // 2. Store analysis metadata in task
@@ -87,9 +85,14 @@ export async function saveTaskAnalysis(params) {
             risks_count: analysis.risks.length,
             high_risk_count: highRisks.length,
         });
+        // Build success message with conflict info
+        let message = `Analysis saved: ${analysis.dependencies.length} dependencies, ${analysis.risks.length} risks identified`;
+        if (depResult.conflicts && depResult.conflicts.length > 0) {
+            message += `, ${depResult.conflicts.length} conflicts detected`;
+        }
         return {
             success: true,
-            message: `Analysis saved: ${analysis.dependencies.length} dependencies, ${analysis.risks.length} risks identified`,
+            message,
         };
     }
     catch (error) {
@@ -216,7 +219,7 @@ Based on codebase analysis, you will need to:
     if (dependencies.length > 0) {
         prompt += `### Dependencies Identified\n`;
         dependencies.forEach((dep) => {
-            prompt += `- **${dep.resource.name}** (${dep.resource.resource_type}) - ${dep.relationship}\n`;
+            prompt += `- **${dep.resource.name}** (${dep.resource.type}) - ${dep.action_type}\n`;
             if (dep.resource.path) {
                 prompt += `  Path: \`${dep.resource.path}\`\n`;
             }

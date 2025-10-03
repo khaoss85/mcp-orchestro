@@ -5,6 +5,17 @@ export interface Task {
     description: string;
     status: TaskStatus;
     dependencies: string[];
+    assignee?: string | null;
+    priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
+    tags?: string[];
+    userStoryId?: string | null;
+    isUserStory: boolean;
+    storyMetadata?: {
+        complexity?: string;
+        estimatedHours?: number;
+        tags?: string[];
+        originalStory?: string;
+    };
     createdAt: string;
     updatedAt: string;
 }
@@ -13,6 +24,12 @@ export declare function createTask(params: {
     description: string;
     status?: TaskStatus;
     dependencies?: string[];
+    assignee?: string | null;
+    priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
+    tags?: string[];
+    userStoryId?: string | null;
+    isUserStory?: boolean;
+    storyMetadata?: any;
 }): Promise<{
     success: boolean;
     task?: Task;
@@ -27,6 +44,9 @@ export declare function updateTask(params: {
     description?: string;
     status?: TaskStatus;
     dependencies?: string[];
+    assignee?: string | null;
+    priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
+    tags?: string[];
 }): Promise<{
     success: boolean;
     task?: Task;
@@ -69,3 +89,5 @@ export declare function getTaskContext(id: string): Promise<{
     context?: TaskContext;
     error?: string;
 }>;
+export declare function getUserStories(): Promise<Task[]>;
+export declare function getTasksByUserStory(userStoryId: string): Promise<Task[]>;

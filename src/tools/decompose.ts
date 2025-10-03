@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createTask, Task } from './task.js';
 import { getRelevantKnowledge } from './knowledge.js';
 import { getAnthropicClient } from '../db/anthropic.js';
+import { emitEvent } from '../db/eventQueue.js';
 
 export type Complexity = 'simple' | 'medium' | 'complex';
 
@@ -170,7 +171,7 @@ export async function decomposeStory(userStory: string): Promise<DecompositionRe
 
     // Call Anthropic API with timeout
     const responsePromise = client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: 2000,
       messages: [
         {
@@ -212,13 +213,50 @@ export async function decomposeStory(userStory: string): Promise<DecompositionRe
     const titleToIdMap = new Map<string, string>();
     const dependencyMap: Record<string, string[]> = {};
 
-    // First pass: create all tasks without dependencies
+    // Calculate total estimated hours upfront
+    const totalEstimatedHours = decomposedTasks.reduce(
+      (sum, t) => sum + (t.estimatedHours || 0),
+      0
+    );
+
+    // Step 1: Create the user story task first
+    const userStoryTitle = `User Story: ${userStory.substring(0, 100)}${userStory.length > 100 ? '...' : ''}`;
+    const userStoryResult = await createTask({
+      title: userStoryTitle,
+      description: userStory,
+      status: 'backlog',
+      isUserStory: true,
+      storyMetadata: {
+        originalStory: userStory,
+        tags: ['user-story'],
+        estimatedTotalHours: totalEstimatedHours,
+      },
+    });
+
+    if (!userStoryResult.success || !userStoryResult.task) {
+      return {
+        success: false,
+        originalStory: userStory,
+        error: `Failed to create user story task: ${userStoryResult.error}`,
+      };
+    }
+
+    const userStoryTask = userStoryResult.task;
+
+    // Step 2: Create sub-tasks linked to user story
     for (const taskData of decomposedTasks) {
       const result = await createTask({
         title: taskData.title,
         description: taskData.description,
         status: 'backlog',
         dependencies: [], // Will be set in second pass
+        userStoryId: userStoryTask.id, // Link to parent story
+        isUserStory: false,
+        storyMetadata: {
+          complexity: taskData.complexity,
+          estimatedHours: taskData.estimatedHours,
+          tags: taskData.tags || [],
+        },
       });
 
       if (!result.success || !result.task) {
@@ -236,6 +274,13 @@ export async function decomposeStory(userStory: string): Promise<DecompositionRe
         estimatedHours: taskData.estimatedHours,
       });
     }
+
+    // Step 3: Emit user story created event
+    await emitEvent('user_story_created', {
+      user_story_id: userStoryTask.id,
+      task_count: createdTasks.length,
+      title: userStoryTask.title,
+    });
 
     // Second pass: update dependencies
     for (let i = 0; i < decomposedTasks.length; i++) {
@@ -257,12 +302,6 @@ export async function decomposeStory(userStory: string): Promise<DecompositionRe
         }
       }
     }
-
-    // Calculate total estimated hours
-    const totalEstimatedHours = createdTasks.reduce(
-      (sum, t) => sum + (t.estimatedHours || 0),
-      0
-    );
 
     return {
       success: true,

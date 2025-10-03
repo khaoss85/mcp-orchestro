@@ -54,7 +54,7 @@ export declare function saveDependencies(taskId: string, resources: AnalyzedReso
     resourceIds?: string[];
     error?: string;
 }>;
-export declare function getTaskDependencyGraph(taskId: string): Promise<DependencyGraph | null>;
+export declare function getTaskDependencyGraph(taskId: string): Promise<DependencyGraph>;
 export declare function getResourceUsage(resourceId: string): Promise<{
     resource: ResourceNode | null;
     tasks: Array<{

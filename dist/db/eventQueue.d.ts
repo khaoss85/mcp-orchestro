@@ -1,6 +1,6 @@
 export interface QueuedEvent {
     id?: string;
-    event_type: 'task_created' | 'task_updated' | 'feedback_received' | 'codebase_analyzed' | 'decision_made' | 'guardian_intervention' | 'code_changed' | 'status_transition';
+    event_type: 'task_created' | 'task_updated' | 'feedback_received' | 'codebase_analyzed' | 'decision_made' | 'guardian_intervention' | 'code_changed' | 'status_transition' | 'user_story_created';
     payload: any;
     processed?: boolean;
     created_at?: string;

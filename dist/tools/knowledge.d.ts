@@ -29,6 +29,18 @@ export interface Learning {
     tags: string[];
     created_at: string;
 }
+export interface PatternFrequency {
+    id: string;
+    pattern: string;
+    frequency: number;
+    last_seen: string;
+    first_seen: string;
+    success_count: number;
+    failure_count: number;
+    improvement_count: number;
+    created_at: string;
+    updated_at: string;
+}
 export declare function getTemplate(id: string): Promise<Template | undefined>;
 export declare function listTemplates(params?: {
     category?: Template['category'];
@@ -76,3 +88,29 @@ export declare function getSimilarLearnings(params: {
     type?: 'success' | 'failure' | 'improvement';
     pattern?: string;
 }): Promise<Learning[]>;
+export declare function getTopPatterns(limit?: number): Promise<PatternFrequency[]>;
+export declare function getTrendingPatterns(days?: number, limit?: number): Promise<{
+    pattern: string;
+    recent_frequency: number;
+    total_frequency: number;
+    success_rate: number;
+    last_seen: string;
+}[]>;
+export declare function getPatternStats(pattern: string): Promise<PatternFrequency | null>;
+export interface FailurePattern {
+    pattern: string;
+    failure_rate: number;
+    failure_count: number;
+    total_count: number;
+    last_failure: string;
+    risk_level: 'high' | 'medium' | 'low';
+    recommendation: string;
+}
+export declare function detectFailurePatterns(minOccurrences?: number, failureThreshold?: number): Promise<FailurePattern[]>;
+export declare function checkPatternRisk(pattern: string): Promise<{
+    is_risky: boolean;
+    risk_level: 'high' | 'medium' | 'low' | 'none';
+    failure_rate: number;
+    recommendation: string;
+    stats: PatternFrequency | null;
+}>;

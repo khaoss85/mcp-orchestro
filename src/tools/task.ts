@@ -12,6 +12,17 @@ export interface Task {
   description: string;
   status: TaskStatus;
   dependencies: string[];
+  assignee?: string | null;
+  priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
+  tags?: string[];
+  userStoryId?: string | null;
+  isUserStory: boolean;
+  storyMetadata?: {
+    complexity?: string;
+    estimatedHours?: number;
+    tags?: string[];
+    originalStory?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -23,6 +34,9 @@ interface TaskRow {
   title: string;
   description: string;
   status: TaskStatus;
+  assignee?: string | null;
+  priority?: string | null;
+  tags?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -37,7 +51,7 @@ const TASK_CACHE_TTL = 5 * 60 * 1000; // 5 minutes (dynamic data)
 const TASK_LIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Helper: Convert database row to Task interface
-async function rowToTask(row: TaskRow): Promise<Task> {
+async function rowToTask(row: any): Promise<Task> {
   const supabase = getSupabaseClient();
 
   // Fetch dependencies for this task
@@ -54,13 +68,19 @@ async function rowToTask(row: TaskRow): Promise<Task> {
     description: row.description,
     status: row.status,
     dependencies,
+    assignee: row.assignee || null,
+    priority: row.priority || null,
+    tags: row.tags || [],
+    userStoryId: row.user_story_id || null,
+    isUserStory: row.is_user_story || false,
+    storyMetadata: row.story_metadata || {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
 // Helper: Convert database rows to Tasks (with dependency batch fetch)
-async function rowsToTasks(rows: TaskRow[]): Promise<Task[]> {
+async function rowsToTasks(rows: any[]): Promise<Task[]> {
   if (rows.length === 0) return [];
 
   const supabase = getSupabaseClient();
@@ -88,6 +108,12 @@ async function rowsToTasks(rows: TaskRow[]): Promise<Task[]> {
     description: row.description,
     status: row.status,
     dependencies: depsMap.get(row.id) || [],
+    assignee: row.assignee || null,
+    priority: row.priority || null,
+    tags: row.tags || [],
+    userStoryId: row.user_story_id || null,
+    isUserStory: row.is_user_story || false,
+    storyMetadata: row.story_metadata || {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
@@ -99,8 +125,14 @@ export async function createTask(params: {
   description: string;
   status?: TaskStatus;
   dependencies?: string[];
+  assignee?: string | null;
+  priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
+  tags?: string[];
+  userStoryId?: string | null;
+  isUserStory?: boolean;
+  storyMetadata?: any;
 }): Promise<{ success: boolean; task?: Task; error?: string }> {
-  const { title, description, status = 'backlog', dependencies = [] } = params;
+  const { title, description, status = 'backlog', dependencies = [], assignee, priority, tags = [], userStoryId, isUserStory, storyMetadata } = params;
 
   const supabase = getSupabaseClient();
 
@@ -117,6 +149,12 @@ export async function createTask(params: {
           title,
           description,
           status,
+          assignee: assignee || null,
+          priority: priority || null,
+          tags: tags || [],
+          user_story_id: userStoryId || null,
+          is_user_story: isUserStory || false,
+          story_metadata: storyMetadata || {},
         })
         .select()
         .single();
@@ -211,8 +249,11 @@ export async function updateTask(params: {
   description?: string;
   status?: TaskStatus;
   dependencies?: string[];
+  assignee?: string | null;
+  priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
+  tags?: string[];
 }): Promise<{ success: boolean; task?: Task; error?: string }> {
-  const { id, title, description, status, dependencies } = params;
+  const { id, title, description, status, dependencies, assignee, priority, tags } = params;
 
   const supabase = getSupabaseClient();
 
@@ -234,6 +275,9 @@ export async function updateTask(params: {
       if (title !== undefined) updates.title = title;
       if (description !== undefined) updates.description = description;
       if (status !== undefined) updates.status = status;
+      if (assignee !== undefined) updates.assignee = assignee;
+      if (priority !== undefined) updates.priority = priority;
+      if (tags !== undefined) updates.tags = tags;
 
       // Update task (triggers will validate status transitions and dependency completion)
       if (Object.keys(updates).length > 0) {
@@ -266,6 +310,9 @@ export async function updateTask(params: {
         existingRow.title = updatedRow.title;
         existingRow.description = updatedRow.description;
         existingRow.status = updatedRow.status;
+        existingRow.assignee = updatedRow.assignee;
+        existingRow.priority = updatedRow.priority;
+        existingRow.tags = updatedRow.tags;
         existingRow.updated_at = updatedRow.updated_at;
       }
 
@@ -316,6 +363,9 @@ export async function updateTask(params: {
       if (title !== undefined) changes.title = title;
       if (description !== undefined) changes.description = description;
       if (status !== undefined) changes.status = status;
+      if (assignee !== undefined) changes.assignee = assignee;
+      if (priority !== undefined) changes.priority = priority;
+      if (tags !== undefined) changes.tags = tags;
       if (dependencies !== undefined) changes.dependencies = dependencies;
 
       await emitEvent('task_updated', { task, changes });
@@ -515,34 +565,24 @@ export async function getTaskContext(id: string): Promise<{ success: boolean; co
       const { data: relatedRows } = await relatedTasksQuery;
       const relatedTasks = relatedRows ? await rowsToTasks(relatedRows) : [];
 
-      // Generate previous work from completed dependencies
-      const previousWork = dependencies
-        .filter(dep => dep.status === 'done')
-        .map(dep => `${dep.title}: ${dep.description}`);
+      // Fetch task metadata with analysis
+      const { data: taskWithMetadata } = await supabase
+        .from('tasks')
+        .select('metadata')
+        .eq('id', id)
+        .single();
 
-      // Generate guidelines based on task status and dependencies
-      const guidelines: string[] = [];
+      const metadata = taskWithMetadata?.metadata;
+      const analysis = metadata?.analysis;
 
-      if (task.status === 'backlog') {
-        guidelines.push('This task is in backlog - review dependencies before starting');
-      } else if (task.status === 'todo') {
-        guidelines.push('Task is ready to start - ensure all dependencies are completed');
-      } else if (task.status === 'in_progress') {
-        guidelines.push('Task is in progress - focus on completing current work');
-      } else if (task.status === 'done') {
-        guidelines.push('Task is completed - can be used as reference for dependent tasks');
-      }
-
-      if (dependencies.length > 0) {
-        guidelines.push('Review completed dependencies for context and patterns');
-      }
-
-      if (dependents.length > 0) {
-        guidelines.push(`This task blocks ${dependents.length} other task(s)`);
-      }
-
-      guidelines.push('Follow existing patterns from the codebase');
-      guidelines.push('Test all changes thoroughly');
+      // Fetch key decisions from event queue
+      const { data: decisionEvents } = await supabase
+        .from('event_queue')
+        .select('*')
+        .eq('event_type', 'decision_made')
+        .contains('payload', { task_id: id })
+        .order('created_at', { ascending: false })
+        .limit(5);
 
       // Get relevant knowledge including task-specific feedback
       const knowledge = await getRelevantKnowledge({
@@ -572,6 +612,104 @@ export async function getTaskContext(id: string): Promise<{ success: boolean; co
           pattern: l.pattern,
         }));
 
+      // Generate enriched previous work from multiple sources
+      const previousWork: string[] = [];
+
+      // 1. Add completed dependency work (original behavior - backward compatible)
+      const dependencyWork = dependencies
+        .filter(dep => dep.status === 'done')
+        .map(dep => `${dep.title}: ${dep.description}`);
+
+      if (dependencyWork.length > 0) {
+        previousWork.push('## Completed Dependencies');
+        previousWork.push(...dependencyWork);
+        previousWork.push(''); // Empty line for spacing
+      }
+
+      // 2. Add analysis summary if task was analyzed
+      if (analysis) {
+        previousWork.push('## Analysis Summary');
+
+        if (analysis.analyzed_at) {
+          previousWork.push(`Analyzed: ${new Date(analysis.analyzed_at).toLocaleString()}`);
+        }
+
+        if (analysis.files_to_modify && analysis.files_to_modify.length > 0) {
+          previousWork.push(`Files to modify: ${analysis.files_to_modify.length}`);
+          const highRiskFiles = analysis.files_to_modify.filter((f: any) => f.risk === 'high');
+          if (highRiskFiles.length > 0) {
+            previousWork.push(`  - High risk files: ${highRiskFiles.map((f: any) => f.path).join(', ')}`);
+          }
+        }
+
+        if (analysis.files_to_create && analysis.files_to_create.length > 0) {
+          previousWork.push(`Files to create: ${analysis.files_to_create.length}`);
+        }
+
+        if (analysis.risks && analysis.risks.length > 0) {
+          const highRisks = analysis.risks.filter((r: any) => r.level === 'high');
+          const mediumRisks = analysis.risks.filter((r: any) => r.level === 'medium');
+          previousWork.push(`Risks identified: ${highRisks.length} high, ${mediumRisks.length} medium`);
+        }
+
+        if (analysis.recommendations && analysis.recommendations.length > 0) {
+          previousWork.push('Key recommendations:');
+          analysis.recommendations.slice(0, 3).forEach((rec: string) => {
+            previousWork.push(`  - ${rec}`);
+          });
+        }
+
+        previousWork.push(''); // Empty line for spacing
+      }
+
+      // 3. Add key decisions from event queue
+      if (decisionEvents && decisionEvents.length > 0) {
+        previousWork.push('## Key Decisions Made');
+        decisionEvents.forEach((event: any) => {
+          const payload = event.payload;
+          const decision = payload.decision || payload.details?.decision || payload.message;
+          if (decision) {
+            const date = new Date(event.created_at).toLocaleDateString();
+            previousWork.push(`- ${decision} (${date})`);
+          }
+        });
+        previousWork.push(''); // Empty line for spacing
+      }
+
+      // 4. Add feedback summary
+      if (taskFeedback.length > 0) {
+        previousWork.push('## Feedback Received');
+        taskFeedback.forEach((fb: any) => {
+          const typeEmoji = fb.type === 'success' ? '✓' : fb.type === 'failure' ? '✗' : '→';
+          previousWork.push(`${typeEmoji} ${fb.feedback}`);
+        });
+        previousWork.push(''); // Empty line for spacing
+      }
+
+      // Generate guidelines based on task status and dependencies
+      const guidelines: string[] = [];
+
+      if (task.status === 'backlog') {
+        guidelines.push('This task is in backlog - review dependencies before starting');
+      } else if (task.status === 'todo') {
+        guidelines.push('Task is ready to start - ensure all dependencies are completed');
+      } else if (task.status === 'in_progress') {
+        guidelines.push('Task is in progress - focus on completing current work');
+      } else if (task.status === 'done') {
+        guidelines.push('Task is completed - can be used as reference for dependent tasks');
+      }
+
+      if (dependencies.length > 0) {
+        guidelines.push('Review completed dependencies for context and patterns');
+      }
+
+      if (dependents.length > 0) {
+        guidelines.push(`This task blocks ${dependents.length} other task(s)`);
+      }
+
+      guidelines.push('Follow existing patterns from the codebase');
+      guidelines.push('Test all changes thoroughly');
+
       // Tech stack from project context
       const techStack = {
         frontend: 'React',
@@ -597,5 +735,43 @@ export async function getTaskContext(id: string): Promise<{ success: boolean; co
     } catch (error) {
       return { success: false, error: `Failed to get task context: ${(error as Error).message}` };
     }
+  });
+}
+
+// Get all user stories
+export async function getUserStories(): Promise<Task[]> {
+  const supabase = getSupabaseClient();
+
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('is_user_story', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to get user stories: ${error.message}`);
+    }
+
+    return rowsToTasks(data || []);
+  });
+}
+
+// Get all tasks belonging to a specific user story
+export async function getTasksByUserStory(userStoryId: string): Promise<Task[]> {
+  const supabase = getSupabaseClient();
+
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_story_id', userStoryId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to get tasks for user story: ${error.message}`);
+    }
+
+    return rowsToTasks(data || []);
   });
 }

@@ -189,7 +189,7 @@ export async function saveDependencies(
 }
 
 // Get dependency graph for a task
-export async function getTaskDependencyGraph(taskId: string): Promise<DependencyGraph | null> {
+export async function getTaskDependencyGraph(taskId: string): Promise<DependencyGraph> {
   const cacheKey = `task:${taskId}:dependencies`;
   const cached = cache.get<DependencyGraph>(cacheKey);
   if (cached) return cached;
@@ -218,7 +218,9 @@ export async function getTaskDependencyGraph(taskId: string): Promise<Dependency
         .eq('task_id', taskId);
 
       if (error) throw error;
-      if (!data || data.length === 0) return null;
+      if (!data || data.length === 0) {
+        return { nodes: [], edges: [] };
+      }
 
       // Transform joined data - deduplicate nodes
       const uniqueNodes = new Map<string, ResourceNode>();
@@ -246,7 +248,7 @@ export async function getTaskDependencyGraph(taskId: string): Promise<Dependency
 
     } catch (error) {
       console.error('Failed to fetch dependency graph:', error);
-      return null;
+      return { nodes: [], edges: [] };
     }
   });
 }

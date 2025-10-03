@@ -145,8 +145,9 @@ export async function getTaskDependencyGraph(taskId) {
                 .eq('task_id', taskId);
             if (error)
                 throw error;
-            if (!data || data.length === 0)
-                return null;
+            if (!data || data.length === 0) {
+                return { nodes: [], edges: [] };
+            }
             // Transform joined data - deduplicate nodes
             const uniqueNodes = new Map();
             const edges = [];
@@ -168,7 +169,7 @@ export async function getTaskDependencyGraph(taskId) {
         }
         catch (error) {
             console.error('Failed to fetch dependency graph:', error);
-            return null;
+            return { nodes: [], edges: [] };
         }
     });
 }

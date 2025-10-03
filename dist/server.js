@@ -3,8 +3,8 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
 import { getProjectInfo } from "./tools/project.js";
-import { createTask, listTasks, updateTask, getTaskContext } from "./tools/task.js";
-import { listTemplates, listPatterns, listLearnings, renderTemplate, getRelevantKnowledge, addFeedback, getSimilarLearnings } from "./tools/knowledge.js";
+import { createTask, listTasks, updateTask, getTaskContext, getUserStories, getTasksByUserStory } from "./tools/task.js";
+import { listTemplates, listPatterns, listLearnings, renderTemplate, getRelevantKnowledge, addFeedback, getSimilarLearnings, getTopPatterns, getTrendingPatterns, getPatternStats, detectFailurePatterns, checkPatternRisk } from "./tools/knowledge.js";
 import { decomposeStory } from "./tools/decompose.js";
 import { saveDependencies, getTaskDependencyGraph, getResourceUsage, getTaskConflicts } from "./tools/dependencies.js";
 import { prepareTaskForExecution } from "./tools/taskPreparation.js";
@@ -32,7 +32,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "create_task",
-                description: "Creates a new task with title, description, status (backlog|todo|in_progress|done), and dependencies",
+                description: "Creates a new task with title, description, status (backlog|todo|in_progress|done), dependencies, assignee, priority, and tags",
                 inputSchema: {
                     type: "object",
                     properties: {
@@ -53,6 +53,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                             type: "array",
                             items: { type: "string" },
                             description: "Array of task IDs this task depends on",
+                        },
+                        assignee: {
+                            type: "string",
+                            description: "Task assignee",
+                        },
+                        priority: {
+                            type: "string",
+                            enum: ["low", "medium", "high", "urgent"],
+                            description: "Task priority",
+                        },
+                        tags: {
+                            type: "array",
+                            items: { type: "string" },
+                            description: "Task tags for categorization",
                         },
                     },
                     required: ["title", "description"],
@@ -99,6 +113,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                             type: "array",
                             items: { type: "string" },
                             description: "New array of task IDs this task depends on",
+                        },
+                        assignee: {
+                            type: "string",
+                            description: "Task assignee",
+                        },
+                        priority: {
+                            type: "string",
+                            enum: ["low", "medium", "high", "urgent"],
+                            description: "Task priority",
+                        },
+                        tags: {
+                            type: "array",
+                            items: { type: "string" },
+                            description: "Task tags for categorization",
                         },
                     },
                     required: ["id"],
@@ -279,6 +307,81 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 },
             },
             {
+                name: "get_top_patterns",
+                description: "Get the most frequently used patterns across all tasks, sorted by frequency and recency",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        limit: {
+                            type: "number",
+                            description: "Maximum number of patterns to return (default: 10)",
+                        },
+                    },
+                },
+            },
+            {
+                name: "get_trending_patterns",
+                description: "Get patterns that are trending (most used in recent days), useful for identifying current development patterns",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        days: {
+                            type: "number",
+                            description: "Number of days to look back (default: 7)",
+                        },
+                        limit: {
+                            type: "number",
+                            description: "Maximum number of patterns to return (default: 10)",
+                        },
+                    },
+                },
+            },
+            {
+                name: "get_pattern_stats",
+                description: "Get detailed statistics for a specific pattern including frequency, success rate, and usage timeline",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        pattern: {
+                            type: "string",
+                            description: "The pattern name to get statistics for",
+                        },
+                    },
+                    required: ["pattern"],
+                },
+            },
+            {
+                name: "detect_failure_patterns",
+                description: "Automatically detect patterns with high failure rates to identify risky approaches. Returns patterns sorted by failure rate with risk assessments and recommendations.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        minOccurrences: {
+                            type: "number",
+                            description: "Minimum number of times a pattern must occur to be analyzed (default: 3)",
+                        },
+                        failureThreshold: {
+                            type: "number",
+                            description: "Minimum failure rate (0.0-1.0) to flag a pattern as risky (default: 0.5 = 50%)",
+                        },
+                    },
+                },
+            },
+            {
+                name: "check_pattern_risk",
+                description: "Check if a specific pattern has a history of failures and get risk assessment before using it. Provides immediate feedback on pattern safety.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        pattern: {
+                            type: "string",
+                            description: "The pattern name to check for risk",
+                        },
+                    },
+                    required: ["pattern"],
+                },
+            },
+            {
                 name: "prepare_task_for_execution",
                 description: "Prepares a task for execution by generating a structured analysis request. Returns a prompt that guides Claude Code to analyze the codebase using its tools (Read, Grep, Glob). After analysis, call save_task_analysis with the results.",
                 inputSchema: {
@@ -456,6 +559,28 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     required: ["taskId"],
                 },
             },
+            {
+                name: "get_user_stories",
+                description: "Get all user stories with task counts for dashboard display",
+                inputSchema: {
+                    type: "object",
+                    properties: {},
+                },
+            },
+            {
+                name: "get_tasks_by_user_story",
+                description: "Get all tasks belonging to a specific user story",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        userStoryId: {
+                            type: "string",
+                            description: "UUID of the user story",
+                        },
+                    },
+                    required: ["userStoryId"],
+                },
+            },
         ],
     };
 });
@@ -624,6 +749,61 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
         };
     }
+    if (name === "get_top_patterns") {
+        const patterns = await getTopPatterns(args.limit);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(patterns, null, 2),
+                },
+            ],
+        };
+    }
+    if (name === "get_trending_patterns") {
+        const patterns = await getTrendingPatterns(args.days, args.limit);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(patterns, null, 2),
+                },
+            ],
+        };
+    }
+    if (name === "get_pattern_stats") {
+        const stats = await getPatternStats(args.pattern);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(stats, null, 2),
+                },
+            ],
+        };
+    }
+    if (name === "detect_failure_patterns") {
+        const failurePatterns = await detectFailurePatterns(args.minOccurrences, args.failureThreshold);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(failurePatterns, null, 2),
+                },
+            ],
+        };
+    }
+    if (name === "check_pattern_risk") {
+        const risk = await checkPatternRisk(args.pattern);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(risk, null, 2),
+                },
+            ],
+        };
+    }
     if (name === "prepare_task_for_execution") {
         try {
             const request = await prepareTaskForExecution(args.taskId);
@@ -738,6 +918,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 {
                     type: "text",
                     text: JSON.stringify(conflicts, null, 2),
+                },
+            ],
+        };
+    }
+    if (name === "get_user_stories") {
+        const stories = await getUserStories();
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(stories, null, 2),
+                },
+            ],
+        };
+    }
+    if (name === "get_tasks_by_user_story") {
+        const { userStoryId } = args;
+        const tasks = await getTasksByUserStory(userStoryId);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(tasks, null, 2),
                 },
             ],
         };

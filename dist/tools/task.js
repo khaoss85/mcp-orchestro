@@ -21,6 +21,12 @@ async function rowToTask(row) {
         description: row.description,
         status: row.status,
         dependencies,
+        assignee: row.assignee || null,
+        priority: row.priority || null,
+        tags: row.tags || [],
+        userStoryId: row.user_story_id || null,
+        isUserStory: row.is_user_story || false,
+        storyMetadata: row.story_metadata || {},
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -51,13 +57,19 @@ async function rowsToTasks(rows) {
         description: row.description,
         status: row.status,
         dependencies: depsMap.get(row.id) || [],
+        assignee: row.assignee || null,
+        priority: row.priority || null,
+        tags: row.tags || [],
+        userStoryId: row.user_story_id || null,
+        isUserStory: row.is_user_story || false,
+        storyMetadata: row.story_metadata || {},
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     }));
 }
 // Create a new task
 export async function createTask(params) {
-    const { title, description, status = 'backlog', dependencies = [] } = params;
+    const { title, description, status = 'backlog', dependencies = [], assignee, priority, tags = [], userStoryId, isUserStory, storyMetadata } = params;
     const supabase = getSupabaseClient();
     return withRetry(async () => {
         try {
@@ -71,6 +83,12 @@ export async function createTask(params) {
                 title,
                 description,
                 status,
+                assignee: assignee || null,
+                priority: priority || null,
+                tags: tags || [],
+                user_story_id: userStoryId || null,
+                is_user_story: isUserStory || false,
+                story_metadata: storyMetadata || {},
             })
                 .select()
                 .single();
@@ -140,7 +158,7 @@ export async function listTasks(params) {
 }
 // Update a task
 export async function updateTask(params) {
-    const { id, title, description, status, dependencies } = params;
+    const { id, title, description, status, dependencies, assignee, priority, tags } = params;
     const supabase = getSupabaseClient();
     return withRetry(async () => {
         try {
@@ -161,6 +179,12 @@ export async function updateTask(params) {
                 updates.description = description;
             if (status !== undefined)
                 updates.status = status;
+            if (assignee !== undefined)
+                updates.assignee = assignee;
+            if (priority !== undefined)
+                updates.priority = priority;
+            if (tags !== undefined)
+                updates.tags = tags;
             // Update task (triggers will validate status transitions and dependency completion)
             if (Object.keys(updates).length > 0) {
                 const { data: updatedRow, error: updateError } = await supabase
@@ -188,6 +212,9 @@ export async function updateTask(params) {
                 existingRow.title = updatedRow.title;
                 existingRow.description = updatedRow.description;
                 existingRow.status = updatedRow.status;
+                existingRow.assignee = updatedRow.assignee;
+                existingRow.priority = updatedRow.priority;
+                existingRow.tags = updatedRow.tags;
                 existingRow.updated_at = updatedRow.updated_at;
             }
             // Update dependencies if provided
@@ -232,6 +259,12 @@ export async function updateTask(params) {
                 changes.description = description;
             if (status !== undefined)
                 changes.status = status;
+            if (assignee !== undefined)
+                changes.assignee = assignee;
+            if (priority !== undefined)
+                changes.priority = priority;
+            if (tags !== undefined)
+                changes.tags = tags;
             if (dependencies !== undefined)
                 changes.dependencies = dependencies;
             await emitEvent('task_updated', { task, changes });
@@ -376,32 +409,22 @@ export async function getTaskContext(id) {
                     .limit(5);
             const { data: relatedRows } = await relatedTasksQuery;
             const relatedTasks = relatedRows ? await rowsToTasks(relatedRows) : [];
-            // Generate previous work from completed dependencies
-            const previousWork = dependencies
-                .filter(dep => dep.status === 'done')
-                .map(dep => `${dep.title}: ${dep.description}`);
-            // Generate guidelines based on task status and dependencies
-            const guidelines = [];
-            if (task.status === 'backlog') {
-                guidelines.push('This task is in backlog - review dependencies before starting');
-            }
-            else if (task.status === 'todo') {
-                guidelines.push('Task is ready to start - ensure all dependencies are completed');
-            }
-            else if (task.status === 'in_progress') {
-                guidelines.push('Task is in progress - focus on completing current work');
-            }
-            else if (task.status === 'done') {
-                guidelines.push('Task is completed - can be used as reference for dependent tasks');
-            }
-            if (dependencies.length > 0) {
-                guidelines.push('Review completed dependencies for context and patterns');
-            }
-            if (dependents.length > 0) {
-                guidelines.push(`This task blocks ${dependents.length} other task(s)`);
-            }
-            guidelines.push('Follow existing patterns from the codebase');
-            guidelines.push('Test all changes thoroughly');
+            // Fetch task metadata with analysis
+            const { data: taskWithMetadata } = await supabase
+                .from('tasks')
+                .select('metadata')
+                .eq('id', id)
+                .single();
+            const metadata = taskWithMetadata?.metadata;
+            const analysis = metadata?.analysis;
+            // Fetch key decisions from event queue
+            const { data: decisionEvents } = await supabase
+                .from('event_queue')
+                .select('*')
+                .eq('event_type', 'decision_made')
+                .contains('payload', { task_id: id })
+                .order('created_at', { ascending: false })
+                .limit(5);
             // Get relevant knowledge including task-specific feedback
             const knowledge = await getRelevantKnowledge({
                 taskTitle: task.title,
@@ -427,6 +450,90 @@ export async function getTaskContext(id) {
                 type: l.type,
                 pattern: l.pattern,
             }));
+            // Generate enriched previous work from multiple sources
+            const previousWork = [];
+            // 1. Add completed dependency work (original behavior - backward compatible)
+            const dependencyWork = dependencies
+                .filter(dep => dep.status === 'done')
+                .map(dep => `${dep.title}: ${dep.description}`);
+            if (dependencyWork.length > 0) {
+                previousWork.push('## Completed Dependencies');
+                previousWork.push(...dependencyWork);
+                previousWork.push(''); // Empty line for spacing
+            }
+            // 2. Add analysis summary if task was analyzed
+            if (analysis) {
+                previousWork.push('## Analysis Summary');
+                if (analysis.analyzed_at) {
+                    previousWork.push(`Analyzed: ${new Date(analysis.analyzed_at).toLocaleString()}`);
+                }
+                if (analysis.files_to_modify && analysis.files_to_modify.length > 0) {
+                    previousWork.push(`Files to modify: ${analysis.files_to_modify.length}`);
+                    const highRiskFiles = analysis.files_to_modify.filter((f) => f.risk === 'high');
+                    if (highRiskFiles.length > 0) {
+                        previousWork.push(`  - High risk files: ${highRiskFiles.map((f) => f.path).join(', ')}`);
+                    }
+                }
+                if (analysis.files_to_create && analysis.files_to_create.length > 0) {
+                    previousWork.push(`Files to create: ${analysis.files_to_create.length}`);
+                }
+                if (analysis.risks && analysis.risks.length > 0) {
+                    const highRisks = analysis.risks.filter((r) => r.level === 'high');
+                    const mediumRisks = analysis.risks.filter((r) => r.level === 'medium');
+                    previousWork.push(`Risks identified: ${highRisks.length} high, ${mediumRisks.length} medium`);
+                }
+                if (analysis.recommendations && analysis.recommendations.length > 0) {
+                    previousWork.push('Key recommendations:');
+                    analysis.recommendations.slice(0, 3).forEach((rec) => {
+                        previousWork.push(`  - ${rec}`);
+                    });
+                }
+                previousWork.push(''); // Empty line for spacing
+            }
+            // 3. Add key decisions from event queue
+            if (decisionEvents && decisionEvents.length > 0) {
+                previousWork.push('## Key Decisions Made');
+                decisionEvents.forEach((event) => {
+                    const payload = event.payload;
+                    const decision = payload.decision || payload.details?.decision || payload.message;
+                    if (decision) {
+                        const date = new Date(event.created_at).toLocaleDateString();
+                        previousWork.push(`- ${decision} (${date})`);
+                    }
+                });
+                previousWork.push(''); // Empty line for spacing
+            }
+            // 4. Add feedback summary
+            if (taskFeedback.length > 0) {
+                previousWork.push('## Feedback Received');
+                taskFeedback.forEach((fb) => {
+                    const typeEmoji = fb.type === 'success' ? '✓' : fb.type === 'failure' ? '✗' : '→';
+                    previousWork.push(`${typeEmoji} ${fb.feedback}`);
+                });
+                previousWork.push(''); // Empty line for spacing
+            }
+            // Generate guidelines based on task status and dependencies
+            const guidelines = [];
+            if (task.status === 'backlog') {
+                guidelines.push('This task is in backlog - review dependencies before starting');
+            }
+            else if (task.status === 'todo') {
+                guidelines.push('Task is ready to start - ensure all dependencies are completed');
+            }
+            else if (task.status === 'in_progress') {
+                guidelines.push('Task is in progress - focus on completing current work');
+            }
+            else if (task.status === 'done') {
+                guidelines.push('Task is completed - can be used as reference for dependent tasks');
+            }
+            if (dependencies.length > 0) {
+                guidelines.push('Review completed dependencies for context and patterns');
+            }
+            if (dependents.length > 0) {
+                guidelines.push(`This task blocks ${dependents.length} other task(s)`);
+            }
+            guidelines.push('Follow existing patterns from the codebase');
+            guidelines.push('Test all changes thoroughly');
             // Tech stack from project context
             const techStack = {
                 frontend: 'React',
@@ -452,5 +559,35 @@ export async function getTaskContext(id) {
         catch (error) {
             return { success: false, error: `Failed to get task context: ${error.message}` };
         }
+    });
+}
+// Get all user stories
+export async function getUserStories() {
+    const supabase = getSupabaseClient();
+    return withRetry(async () => {
+        const { data, error } = await supabase
+            .from('tasks')
+            .select('*')
+            .eq('is_user_story', true)
+            .order('created_at', { ascending: false });
+        if (error) {
+            throw new Error(`Failed to get user stories: ${error.message}`);
+        }
+        return rowsToTasks(data || []);
+    });
+}
+// Get all tasks belonging to a specific user story
+export async function getTasksByUserStory(userStoryId) {
+    const supabase = getSupabaseClient();
+    return withRetry(async () => {
+        const { data, error } = await supabase
+            .from('tasks')
+            .select('*')
+            .eq('user_story_id', userStoryId)
+            .order('created_at', { ascending: true });
+        if (error) {
+            throw new Error(`Failed to get tasks for user story: ${error.message}`);
+        }
+        return rowsToTasks(data || []);
     });
 }
