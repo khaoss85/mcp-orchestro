@@ -552,7 +552,8 @@ export async function getTaskContext(id) {
                     guidelines,
                     feedback: taskFeedback,
                     relatedLearnings,
-                    techStack
+                    techStack,
+                    analysis
                 }
             };
         }

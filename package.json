@@ -1,20 +1,40 @@
 {
-  "name": "mcp-coder-expert",
-  "version": "1.0.0",
-  "description": "Basic MCP server with project info tool",
+  "name": "orchestro",
+  "version": "2.1.0",
+  "description": "Your AI Development Conductor - Intelligent task management for Claude Code",
   "type": "module",
   "main": "dist/server.js",
+  "bin": {
+    "orchestro": "./scripts/setup.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "tsc && node dist/server.js"
+    "dev": "tsc && node dist/server.js",
+    "setup": "node scripts/setup.cjs",
+    "configure-claude": "node scripts/configure-claude.cjs",
+    "dashboard": "cd web-dashboard && npm run dev",
+    "migrate": "node scripts/migrate.cjs",
+    "test": "node scripts/test-setup.cjs",
+    "test:setup": "node scripts/test-setup.cjs"
   },
   "keywords": [
     "mcp",
-    "server"
+    "orchestro",
+    "claude-code",
+    "ai",
+    "task-management",
+    "development-workflow",
+    "supabase",
+    "kanban"
   ],
-  "author": "",
+  "author": "Orchestro Team",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/orchestro.git"
+  },
+  "homepage": "https://github.com/yourusername/orchestro#readme",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
     "@modelcontextprotocol/sdk": "^1.0.4",

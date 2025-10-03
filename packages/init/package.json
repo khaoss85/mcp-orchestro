@@ -1,0 +1,34 @@
+{
+  "name": "@orchestro/init",
+  "version": "1.0.0",
+  "description": "One-command installer for Orchestro - Your AI Development Conductor",
+  "main": "index.js",
+  "bin": {
+    "orchestro-init": "./index.js"
+  },
+  "keywords": [
+    "orchestro",
+    "mcp",
+    "claude-code",
+    "installer",
+    "ai",
+    "task-management",
+    "development-workflow"
+  ],
+  "author": "Orchestro Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/orchestro.git",
+    "directory": "packages/init"
+  },
+  "homepage": "https://github.com/yourusername/orchestro#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "dependencies": {}
+}

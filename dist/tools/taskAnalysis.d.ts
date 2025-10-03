@@ -60,5 +60,12 @@ export declare function saveTaskAnalysis(params: TaskAnalysis): Promise<{
 }>;
 /**
  * Generate enriched execution prompt with all context
+ *
+ * Optimization: This function can accept a pre-fetched analysis object from TaskContext
+ * to avoid redundant database queries. If analysis is not provided, it will fetch from
+ * the database for backward compatibility.
+ *
+ * @param taskId - The ID of the task
+ * @param providedAnalysis - Optional pre-fetched analysis from TaskContext (optimization)
  */
-export declare function getExecutionPrompt(taskId: string): Promise<ExecutionPrompt>;
+export declare function getExecutionPrompt(taskId: string, providedAnalysis?: any): Promise<ExecutionPrompt>;

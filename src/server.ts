@@ -16,8 +16,8 @@ import { saveTaskAnalysis, getExecutionPrompt } from "./tools/taskAnalysis.js";
 
 const server = new Server(
   {
-    name: "mcp-coder-expert",
-    version: "1.0.0",
+    name: "orchestro",
+    version: "2.1.0",
   },
   {
     capabilities: {
@@ -989,7 +989,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("MCP Coder Expert server running on stdio");
+  console.error("🎭 Orchestro MCP server running on stdio (v2.1.0)");
 }
 
 main().catch((error) => {

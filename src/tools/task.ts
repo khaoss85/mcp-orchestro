@@ -502,6 +502,29 @@ export interface TaskContext {
     database?: string;
     [key: string]: string | undefined;
   };
+  analysis?: {
+    files_to_modify: Array<{
+      path: string;
+      reason: string;
+      risk: 'low' | 'medium' | 'high';
+    }>;
+    files_to_create: Array<{
+      path: string;
+      reason: string;
+    }>;
+    risks: Array<{
+      level: 'low' | 'medium' | 'high';
+      description: string;
+      mitigation: string;
+    }>;
+    related_code: Array<{
+      file: string;
+      description: string;
+      lines?: string;
+    }>;
+    recommendations: string[];
+    analyzed_at?: string;
+  };
 }
 
 // Get comprehensive task context for Claude Code
@@ -729,7 +752,8 @@ export async function getTaskContext(id: string): Promise<{ success: boolean; co
           guidelines,
           feedback: taskFeedback,
           relatedLearnings,
-          techStack
+          techStack,
+          analysis
         }
       };
     } catch (error) {

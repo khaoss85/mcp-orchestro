@@ -83,6 +83,29 @@ export interface TaskContext {
         database?: string;
         [key: string]: string | undefined;
     };
+    analysis?: {
+        files_to_modify: Array<{
+            path: string;
+            reason: string;
+            risk: 'low' | 'medium' | 'high';
+        }>;
+        files_to_create: Array<{
+            path: string;
+            reason: string;
+        }>;
+        risks: Array<{
+            level: 'low' | 'medium' | 'high';
+            description: string;
+            mitigation: string;
+        }>;
+        related_code: Array<{
+            file: string;
+            description: string;
+            lines?: string;
+        }>;
+        recommendations: string[];
+        analyzed_at?: string;
+    };
 }
 export declare function getTaskContext(id: string): Promise<{
     success: boolean;

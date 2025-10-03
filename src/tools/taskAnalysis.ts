@@ -162,8 +162,18 @@ export async function saveTaskAnalysis(params: TaskAnalysis): Promise<{ success:
 
 /**
  * Generate enriched execution prompt with all context
+ *
+ * Optimization: This function can accept a pre-fetched analysis object from TaskContext
+ * to avoid redundant database queries. If analysis is not provided, it will fetch from
+ * the database for backward compatibility.
+ *
+ * @param taskId - The ID of the task
+ * @param providedAnalysis - Optional pre-fetched analysis from TaskContext (optimization)
  */
-export async function getExecutionPrompt(taskId: string): Promise<ExecutionPrompt> {
+export async function getExecutionPrompt(
+  taskId: string,
+  providedAnalysis?: any
+): Promise<ExecutionPrompt> {
   const task = await getTask(taskId);
   if (!task) {
     throw new Error(`Task ${taskId} not found`);
@@ -171,18 +181,23 @@ export async function getExecutionPrompt(taskId: string): Promise<ExecutionPromp
 
   const supabase = getSupabaseClient();
 
-  // Get task from database with metadata
-  const { data: taskData, error: taskError } = await supabase
-    .from('tasks')
-    .select('metadata')
-    .eq('id', taskId)
-    .single();
+  // Optimization: Use provided analysis from context if available (avoids database query)
+  let analysis = providedAnalysis;
 
-  if (taskError || !taskData) {
-    throw new Error(`Failed to load task metadata: ${taskError?.message || 'Task not found'}`);
+  // Fallback: Fetch from database if not provided (backward compatibility)
+  if (!analysis) {
+    const { data: taskData, error: taskError } = await supabase
+      .from('tasks')
+      .select('metadata')
+      .eq('id', taskId)
+      .single();
+
+    if (taskError || !taskData) {
+      throw new Error(`Failed to load task metadata: ${taskError?.message || 'Task not found'}`);
+    }
+
+    analysis = taskData.metadata?.analysis || null;
   }
-
-  const analysis = taskData.metadata?.analysis || null;
 
   if (!analysis) {
     throw new Error(`Task ${taskId} has not been analyzed yet. Call prepare_task_for_execution first.`);
