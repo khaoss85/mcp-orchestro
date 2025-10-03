@@ -109,6 +109,7 @@ npx @orchestro/init
 
 **That's it!** The installer will:
 - ✅ Download and setup Orchestro
+- ✅ Apply database migrations to Supabase
 - ✅ Configure Claude Code automatically
 - ✅ Setup Supabase connection
 - ✅ Start the dashboard
@@ -141,14 +142,63 @@ npx @orchestro/init
 node --version
 
 # Supabase account (free tier works great)
+# Sign up at https://supabase.com
 ```
 
-#### 2. Clone & Install
+#### 2. Database Setup on Supabase
+
+**Create your Supabase project:**
+1. Go to https://supabase.com and create a new project
+2. Wait for the database to be provisioned (~2 minutes)
+3. Go to **Settings** → **Database** and copy the **Connection String** (Transaction mode)
+
+**Apply database schema:**
 ```bash
+# Clone this repo first
 git clone https://github.com/yourusername/orchestro.git
 cd orchestro
+
+# Install dependencies
 npm install
-npm run build
+
+# Set your Supabase connection string
+export DATABASE_URL="your-supabase-connection-string"
+
+# Apply all migrations to create the schema
+npm run migrate
+```
+
+**Verify database setup:**
+```bash
+# The migrate script will show you all tables created:
+# You should see:
+# ✅ Running migration: code_entities
+# ✅ Running migration: add_tasks_metadata
+# ✅ Running migration: fix_status_transition_trigger
+# ✅ Running migration: event_queue
+# ✅ Running migration: auto_update_user_story_status
+# ✅ Running migration: add_task_metadata_fields
+# ✅ Running migration: add_pattern_frequency_tracking
+
+# Or verify manually via Supabase dashboard:
+# Go to Database → Tables and check all tables are created
+```
+
+**Get your credentials:**
+```bash
+# From Supabase Dashboard:
+
+# 1. DATABASE_URL (for migrations & MCP server)
+#    Settings → Database → Connection String → Transaction mode
+#    Example: postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres
+
+# 2. SUPABASE_URL (for API calls)
+#    Settings → API → Project URL
+#    Example: https://[project].supabase.co
+
+# 3. SUPABASE_SERVICE_KEY (for admin operations - keep secret!)
+#    Settings → API → service_role key
+#    Example: eyJhbG...
 ```
 
 #### 3. Quick Setup Script
@@ -527,11 +577,12 @@ check_pattern_risk("regex pattern matching")
 - React Flow (graphs)
 - react-markdown (rendering)
 
-**Database**
-- PostgreSQL (Supabase)
-- JSONB for flexible metadata
-- GIN indexes for performance
-- Row-level security (RLS)
+**Database (Supabase/PostgreSQL)**
+- **Core**: projects, tasks, task_dependencies
+- **Knowledge**: learnings, patterns, templates, pattern_frequency
+- **Resources**: resource_nodes, resource_edges, code_entities, code_dependencies
+- **System**: event_queue, file_history, codebase_analysis
+- **Tech**: JSONB metadata, GIN indexes, Row-level security (RLS)
 
 **AI Integration**
 - Claude Code (MCP protocol)
