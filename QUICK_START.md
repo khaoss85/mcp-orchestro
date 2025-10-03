@@ -1,132 +1,167 @@
-# Quick Start Guide - MCP Coder Expert
+# 🚀 Orchestro - Quick Start Guide
 
-## 🚀 Setup Rapido (5 minuti)
+## For Immediate Use on a New Project
 
-### 1. Verifica che tutto sia running
+### Step 1: Prerequisites Check ✅
+
+Make sure you have:
+- ✅ Node.js 18+ (`node --version`)
+- ✅ Claude Code installed
+- ✅ Supabase database URL (pooler connection)
+
+---
+
+### Step 2: Install/Configure Orchestro ⚡
+
+#### If Already Installed at `/Users/pelleri/Documents/mcp-coder-expert`:
 
 ```bash
-# Dashboard dovrebbe essere già attiva
-open http://localhost:3000
-
-# Verifica build MCP server
 cd /Users/pelleri/Documents/mcp-coder-expert
-npm run build
+npm run configure-claude
 ```
 
-✅ Se vedi la dashboard e build completa senza errori, sei pronto!
+This updates your Claude Code config automatically.
 
----
+#### If Installing Fresh:
 
-### 2. Configura Claude Code
-
-**Apri il file di config**:
 ```bash
-open ~/Library/Application\ Support/Claude/claude_desktop_config.json
-```
-
-**Aggiungi questa configurazione**:
-```json
-{
-  "mcpServers": {
-    "mcp-coder-expert": {
-      "command": "/Users/pelleri/Documents/mcp-coder-expert/run-mcp-server.sh",
-      "args": [],
-      "env": {
-        "SUPABASE_URL": "https://zjtiqmdhqtapxeidiubd.supabase.co",
-        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqdGlxbWRocXRhcHhlaWRpdWJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc5NzQ2MTAsImV4cCI6MjA1MzU1MDYxMH0.TDlAWJ8G4MXfMOAZcpx6oZmvX1dVNUVL6-V4kkdN-jw"
-      }
-    }
-  }
-}
-```
-
-**Riavvia Claude Code completamente**.
-
----
-
-### 3. Test Base - Verifica Connessione
-
-Apri Claude Code e chiedi:
-
-```
-Quali MCP tools hai disponibili per mcp-coder-expert?
-```
-
-**Dovresti vedere**:
-- ✅ prepare_task_for_execution
-- ✅ save_task_analysis
-- ✅ get_execution_prompt
-- ✅ decompose_story
-- ✅ create_task
-- ✅ update_task
-- ✅ list_tasks
-- ✅ get_task_context
-- ✅ add_feedback
-- ✅ get_similar_learnings
-- ✅ save_dependencies
-- ✅ get_task_dependency_graph
-- ✅ get_resource_usage
-- ✅ get_task_conflicts
-
----
-
-### 4. Test Workflow Completo
-
-Copia e incolla questo prompt in Claude Code:
-
-```
-Voglio testare il nuovo workflow di mcp-coder-expert.
-
-User Story: "Come amministratore voglio poter bannare utenti dalla piattaforma"
-
-Esegui questo workflow passo per passo:
-
-FASE 1 - PLANNING:
-1. Usa decompose_story per decomporre la user story in tasks
-2. Crea ogni task usando create_task
-
-FASE 2 - ANALYSIS PREPARATION:
-3. Prendi il primo task e usa prepare_task_for_execution
-4. Mostrami il prompt di analisi che hai ricevuto
-
-FASE 3 - CODEBASE ANALYSIS:
-5. Analizza il codebase seguendo il prompt:
-   - Usa Grep per cercare i pattern suggeriti
-   - Usa Read per leggere file rilevanti
-   - Usa Glob per trovare file matching
-6. Compila i risultati dell'analisi
-
-FASE 4 - SAVE ANALYSIS:
-7. Salva l'analisi usando save_task_analysis
-8. Mostrami il messaggio di conferma
-
-FASE 5 - GET ENRICHED PROMPT:
-9. Usa get_execution_prompt per ottenere il prompt arricchito
-10. Mostrami il prompt completo che hai ricevuto
-
-FASE 6 - SUMMARY:
-11. Elenca tutti i task creati con list_tasks
-12. Dammi gli ID dei task così posso vederli nella dashboard
-
-Esegui tutto il workflow e mostrami i risultati di ogni fase!
+npx @orchestro/init
 ```
 
 ---
 
-### 5. Verifica Dashboard
+### Step 3: Restart Claude Code 🔄
 
-Mentre Claude Code lavora, apri:
-**http://localhost:3000**
+**Important**: Claude Code must be completely restarted to load the MCP server!
 
-**Dovresti vedere in tempo reale**:
-- 🔔 **Notifiche toast** per ogni task creato
-- 📋 **Tasks nel Kanban board** (colonna Backlog)
-- ⚡ **Updates istantanei** mentre Claude Code lavora
+**macOS**: Cmd+Q then reopen
+**Windows**: Close completely then reopen
+**Linux**: Close and reopen
 
-**Clicca su un task** per vedere:
-- Tab **Overview**: Dettagli task
-- Tab **History**: Timeline completa con tutti gli eventi
-- Tab **Dependencies**: Grafo delle dipendenze (dopo analysis)
+---
+
+### Step 4: Verify Installation ✅
+
+Open Claude Code and ask:
+```
+Show me the available Orchestro tools
+```
+
+You should see 27 MCP tools available.
+
+---
+
+### Step 5: Start Dashboard (Optional) 📊
+
+```bash
+cd /Users/pelleri/Documents/mcp-coder-expert
+npm run dashboard
+```
+
+Browser should automatically open to: **http://localhost:5173**
+
+---
+
+## Quick Usage Examples
+
+### Create Your First Task
+In Claude Code, say:
+```
+Create a task to implement user authentication
+```
+
+### Decompose a User Story
+```
+Decompose this user story: "User should be able to login with email and password"
+```
+
+### List All Tasks
+```
+List all tasks in the backlog
+```
+
+---
+
+## Current Setup Status
+
+Your current installation at `/Users/pelleri/Documents/mcp-coder-expert`:
+
+✅ **Already Configured**:
+- ✅ Built: `dist/server.js` exists
+- ✅ Environment: `.env` configured with DATABASE_URL
+- ✅ Claude Config: Orchestro MCP server added
+- ✅ Migrations: All database migrations ready
+
+### To Use Right Now on a New Project:
+
+1. **Open Claude Code**
+2. **Navigate to your new project directory**
+3. **Ask Claude Code**:
+   ```
+   Create a new Orchestro task for [your feature]
+   ```
+
+That's it! Orchestro works across all your projects once installed.
+
+---
+
+## Test Workflow Example
+
+Copy and paste this into Claude Code:
+
+```
+I want to test the Orchestro workflow.
+
+User Story: "As an admin I want to ban users from the platform"
+
+Execute this workflow step by step:
+
+PHASE 1 - PLANNING:
+1. Use decompose_story to break down the user story into tasks
+2. Create each task using create_task
+
+PHASE 2 - ANALYSIS PREPARATION:
+3. Take the first task and use prepare_task_for_execution
+4. Show me the analysis prompt you received
+
+PHASE 3 - CODEBASE ANALYSIS:
+5. Analyze the codebase following the prompt:
+   - Use Grep to search for suggested patterns
+   - Use Read to read relevant files
+   - Use Glob to find matching files
+6. Compile the analysis results
+
+PHASE 4 - SAVE ANALYSIS:
+7. Save the analysis using save_task_analysis
+8. Show me the confirmation message
+
+PHASE 5 - GET ENRICHED PROMPT:
+9. Use get_execution_prompt to get the enriched prompt
+10. Show me the complete prompt you received
+
+PHASE 6 - SUMMARY:
+11. List all created tasks with list_tasks
+12. Give me the task IDs so I can see them in the dashboard
+
+Execute the entire workflow and show me the results of each phase!
+```
+
+---
+
+### Step 6: Verify Dashboard
+
+While Claude Code works, the dashboard should auto-open at:
+**http://localhost:5173**
+
+**You should see in real-time**:
+- 🔔 **Toast notifications** for each created task
+- 📋 **Tasks in Kanban board** (Backlog column)
+- ⚡ **Instant updates** while Claude Code works
+
+**Click on a task** to see:
+- Tab **Overview**: Task details
+- Tab **History**: Complete timeline with all events
+- Tab **Dependencies**: Dependency graph (after analysis)
 
 ---
 
