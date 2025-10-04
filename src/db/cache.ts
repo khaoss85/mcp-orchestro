@@ -29,6 +29,23 @@ class SimpleCache {
     this.cache.delete(key);
   }
 
+  // Alias for delete - used in configuration.ts
+  invalidate(key: string): void {
+    this.delete(key);
+  }
+
+  // Get or set with async factory function
+  async getOrSet<T>(key: string, factory: () => Promise<T>, ttlMs?: number): Promise<T> {
+    const cached = this.get<T>(key);
+    if (cached !== null) {
+      return cached;
+    }
+
+    const value = await factory();
+    this.set(key, value, ttlMs);
+    return value;
+  }
+
   clear(): void {
     this.cache.clear();
   }
