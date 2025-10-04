@@ -12,6 +12,7 @@ export interface AnalysisRequest {
     searchPatterns: string[];
     filesToCheck: string[];
     risksToIdentify: string[];
+    workflowInstructions?: any;
 }
 /**
  * Prepares a task for execution by generating a structured analysis request for Claude Code

@@ -50,6 +50,7 @@ export interface ExecutionPrompt {
         patterns: any[];
         guidelines: string[];
     };
+    nextSteps?: any;
 }
 /**
  * Save the analysis performed by Claude Code
@@ -57,6 +58,7 @@ export interface ExecutionPrompt {
 export declare function saveTaskAnalysis(params: TaskAnalysis): Promise<{
     success: boolean;
     message: string;
+    nextSteps?: any;
 }>;
 /**
  * Generate enriched execution prompt with all context

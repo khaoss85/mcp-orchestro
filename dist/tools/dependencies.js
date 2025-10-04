@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { getTask } from './task.js';
 import { getSupabaseClient, withRetry } from '../db/supabase.js';
 import { cache } from '../db/cache.js';
+import { emitDependencyAdded, emitExecutionOrderChanged } from '../db/eventQueue.js';
 // Cache configuration (resources change infrequently)
 const RESOURCE_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const DEPENDENCY_GRAPH_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
@@ -98,7 +99,24 @@ export async function saveDependencies(taskId, resources) {
                 severity: c.severity,
                 description: c.description,
             }));
-            // 6. Invalidate caches
+            // 6. Emit events for each added dependency
+            for (let i = 0; i < resources.length; i++) {
+                const resource = resources[i];
+                const resourceId = upsertedNodes[i].id;
+                await emitDependencyAdded(taskId, resourceId, resource.name, resource.action);
+            }
+            // 7. Collect all affected tasks for execution order update
+            const affectedTasks = new Set([taskId]);
+            // Add all tasks that have conflicts with this task
+            conflicts.forEach(conflict => affectedTasks.add(conflict.taskId));
+            // Add all tasks that depend on the same resources
+            for (const node of upsertedNodes) {
+                const usage = await getResourceUsage(node.id);
+                usage.tasks.forEach(t => affectedTasks.add(t.taskId));
+            }
+            // Emit execution order changed event
+            await emitExecutionOrderChanged(Array.from(affectedTasks));
+            // 8. Invalidate caches
             cache.delete(`task:${taskId}:dependencies`);
             cache.delete(`task:${taskId}:conflicts`);
             cache.clearPattern('resource:*:usage');

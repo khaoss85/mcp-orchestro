@@ -8,6 +8,7 @@
  */
 
 import { getSupabaseClient } from '../db/supabase.js';
+import { buildNextSteps } from '../constants/workflows.js';
 import { getTask } from './task.js';
 import { emitEvent } from '../db/eventQueue.js';
 import { getSimilarLearnings } from './knowledge.js';
@@ -58,12 +59,13 @@ export interface ExecutionPrompt {
     patterns: any[];
     guidelines: string[];
   };
+  nextSteps?: any; // Workflow instructions for Claude Code
 }
 
 /**
  * Save the analysis performed by Claude Code
  */
-export async function saveTaskAnalysis(params: TaskAnalysis): Promise<{ success: boolean; message: string }> {
+export async function saveTaskAnalysis(params: TaskAnalysis): Promise<{ success: boolean; message: string; nextSteps?: any }> {
   const { taskId, analysis } = params;
 
   const task = await getTask(taskId);
@@ -137,6 +139,7 @@ export async function saveTaskAnalysis(params: TaskAnalysis): Promise<{ success:
 
     // 4. Emit analysis complete event
     await emitEvent('task_updated', {
+      task: { id: taskId, title: task.title },
       task_id: taskId,
       update_type: 'analysis_completed',
       dependencies_count: analysis.dependencies.length,
@@ -150,9 +153,13 @@ export async function saveTaskAnalysis(params: TaskAnalysis): Promise<{ success:
       message += `, ${depResult.conflicts.length} conflicts detected`;
     }
 
+    // Build workflow instructions
+    const nextSteps = buildNextSteps('ANALYSIS_SAVED', { taskId });
+
     return {
       success: true,
       message,
+      nextSteps,
     };
   } catch (error: any) {
     console.error('Error saving task analysis:', error);
@@ -229,6 +236,9 @@ export async function getExecutionPrompt(
     guidelines,
   });
 
+  // Build workflow instructions
+  const nextSteps = buildNextSteps('READY_TO_IMPLEMENT', { taskId: task.id });
+
   return {
     taskId: task.id,
     taskTitle: task.title,
@@ -242,6 +252,7 @@ export async function getExecutionPrompt(
       patterns: similarLearnings,
       guidelines,
     },
+    nextSteps,
   };
 }
 

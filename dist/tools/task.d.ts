@@ -8,6 +8,7 @@ export interface Task {
     assignee?: string | null;
     priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
     tags?: string[];
+    category?: 'design_frontend' | 'backend_database' | 'test_fix' | null;
     userStoryId?: string | null;
     isUserStory: boolean;
     storyMetadata?: {
@@ -15,6 +16,19 @@ export interface Task {
         estimatedHours?: number;
         tags?: string[];
         originalStory?: string;
+        estimatedTotalHours?: number;
+        suggestedAgent?: {
+            agentName: string;
+            agentType: string;
+            reason: string;
+            confidence: number;
+        };
+        suggestedTools?: Array<{
+            toolName: string;
+            category: string;
+            reason: string;
+            confidence: number;
+        }>;
     };
     createdAt: string;
     updatedAt: string;
@@ -27,6 +41,7 @@ export declare function createTask(params: {
     assignee?: string | null;
     priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
     tags?: string[];
+    category?: 'design_frontend' | 'backend_database' | 'test_fix' | null;
     userStoryId?: string | null;
     isUserStory?: boolean;
     storyMetadata?: any;
@@ -37,6 +52,7 @@ export declare function createTask(params: {
 }>;
 export declare function listTasks(params?: {
     status?: TaskStatus;
+    category?: 'design_frontend' | 'backend_database' | 'test_fix';
 }): Promise<Task[]>;
 export declare function updateTask(params: {
     id: string;
@@ -47,6 +63,7 @@ export declare function updateTask(params: {
     assignee?: string | null;
     priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
     tags?: string[];
+    category?: 'design_frontend' | 'backend_database' | 'test_fix' | null;
 }): Promise<{
     success: boolean;
     task?: Task;
@@ -114,3 +131,34 @@ export declare function getTaskContext(id: string): Promise<{
 }>;
 export declare function getUserStories(): Promise<Task[]>;
 export declare function getTasksByUserStory(userStoryId: string): Promise<Task[]>;
+export declare function safeDeleteTasksByStatus(params: {
+    status: TaskStatus;
+}): Promise<{
+    success: boolean;
+    deletedCount: number;
+    preservedCount: number;
+    deletedTaskIds: string[];
+    preservedTasks: Array<{
+        id: string;
+        title: string;
+        reason: string;
+        completionPercentage?: number;
+        doneTasks?: number;
+        totalTasks?: number;
+    }>;
+    error?: string;
+}>;
+export declare function getUserStoryHealth(): Promise<Array<{
+    userStoryId: string;
+    userStoryTitle: string;
+    currentStatus: TaskStatus;
+    suggestedStatus: TaskStatus;
+    totalSubtasks: number;
+    doneCount: number;
+    inProgressCount: number;
+    todoCount: number;
+    backlogCount: number;
+    completionPercentage: number;
+    statusMismatch: boolean;
+    safeToDelete: boolean;
+}>>;

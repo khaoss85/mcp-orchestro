@@ -7,6 +7,7 @@
  * 3. Generates enriched prompts for task execution
  */
 import { getSupabaseClient } from '../db/supabase.js';
+import { buildNextSteps } from '../constants/workflows.js';
 import { getTask } from './task.js';
 import { emitEvent } from '../db/eventQueue.js';
 import { getSimilarLearnings } from './knowledge.js';
@@ -79,6 +80,7 @@ export async function saveTaskAnalysis(params) {
         }
         // 4. Emit analysis complete event
         await emitEvent('task_updated', {
+            task: { id: taskId, title: task.title },
             task_id: taskId,
             update_type: 'analysis_completed',
             dependencies_count: analysis.dependencies.length,
@@ -90,9 +92,12 @@ export async function saveTaskAnalysis(params) {
         if (depResult.conflicts && depResult.conflicts.length > 0) {
             message += `, ${depResult.conflicts.length} conflicts detected`;
         }
+        // Build workflow instructions
+        const nextSteps = buildNextSteps('ANALYSIS_SAVED', { taskId });
         return {
             success: true,
             message,
+            nextSteps,
         };
     }
     catch (error) {
@@ -155,6 +160,8 @@ export async function getExecutionPrompt(taskId, providedAnalysis) {
         similarLearnings,
         guidelines,
     });
+    // Build workflow instructions
+    const nextSteps = buildNextSteps('READY_TO_IMPLEMENT', { taskId: task.id });
     return {
         taskId: task.id,
         taskTitle: task.title,
@@ -168,6 +175,7 @@ export async function getExecutionPrompt(taskId, providedAnalysis) {
             patterns: similarLearnings,
             guidelines,
         },
+        nextSteps,
     };
 }
 /**

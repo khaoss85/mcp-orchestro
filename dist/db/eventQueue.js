@@ -39,3 +39,32 @@ export async function markEventProcessed(eventId) {
         console.error('Failed to mark event as processed:', error);
     }
 }
+/**
+ * Emit a dependency_added event
+ */
+export async function emitDependencyAdded(taskId, resourceId, resourceName, action) {
+    await emitEvent('dependency_added', {
+        taskId,
+        resourceId,
+        resourceName,
+        action
+    });
+}
+/**
+ * Emit a dependency_removed event
+ */
+export async function emitDependencyRemoved(taskId, resourceId, resourceName) {
+    await emitEvent('dependency_removed', {
+        taskId,
+        resourceId,
+        resourceName
+    });
+}
+/**
+ * Emit an execution_order_changed event
+ */
+export async function emitExecutionOrderChanged(affectedTasks) {
+    await emitEvent('execution_order_changed', {
+        affectedTasks
+    });
+}

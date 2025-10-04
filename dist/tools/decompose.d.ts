@@ -21,5 +21,10 @@ export interface DecompositionResult {
     dependencyMap?: Record<string, string[]>;
     totalEstimatedHours?: number;
     error?: string;
+    nextSteps?: any;
+    recommendedAnalysisOrder?: Array<{
+        taskId: string;
+        title: string;
+    }>;
 }
 export declare function decomposeStory(userStory: string): Promise<DecompositionResult>;

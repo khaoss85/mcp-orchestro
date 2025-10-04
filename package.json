@@ -16,7 +16,10 @@
     "dashboard": "cd web-dashboard && npm run dev",
     "migrate": "node scripts/migrate.cjs",
     "test": "node scripts/test-setup.cjs",
-    "test:setup": "node scripts/test-setup.cjs"
+    "test:setup": "node scripts/test-setup.cjs",
+    "db:analyze": "tsc && node dist/scripts/analyze-schema-usage.js",
+    "db:health": "node -e \"require('dotenv').config(); const {createClient}=require('@supabase/supabase-js'); const c=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_KEY); c.from('schema_health_dashboard').select('*').then(r=>console.table(r.data))\"",
+    "db:unused": "node -e \"require('dotenv').config(); const {createClient}=require('@supabase/supabase-js'); const c=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_KEY); c.rpc('find_unused_schema_elements',{days_threshold:30}).then(r=>console.table(r.data))\""
   },
   "keywords": [
     "mcp",

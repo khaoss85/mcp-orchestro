@@ -7,6 +7,7 @@
 
 import { getTask } from './task.js';
 import { getSimilarLearnings } from './knowledge.js';
+import { buildNextSteps } from '../constants/workflows.js';
 
 export interface AnalysisRequest {
   taskId: string;
@@ -16,6 +17,7 @@ export interface AnalysisRequest {
   searchPatterns: string[];
   filesToCheck: string[];
   risksToIdentify: string[];
+  workflowInstructions?: any; // Workflow guidance for Claude Code
 }
 
 /**
@@ -53,6 +55,9 @@ export async function prepareTaskForExecution(taskId: string): Promise<AnalysisR
     similarLearnings,
   });
 
+  // Build workflow instructions
+  const workflowInstructions = buildNextSteps('ANALYSIS_PREPARED', { taskId: task.id });
+
   return {
     taskId: task.id,
     taskTitle: task.title,
@@ -61,6 +66,7 @@ export async function prepareTaskForExecution(taskId: string): Promise<AnalysisR
     searchPatterns,
     filesToCheck,
     risksToIdentify,
+    workflowInstructions,
   };
 }
 

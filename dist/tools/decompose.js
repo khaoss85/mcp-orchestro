@@ -4,6 +4,9 @@ import { createTask } from './task.js';
 import { getRelevantKnowledge } from './knowledge.js';
 import { getAnthropicClient } from '../db/anthropic.js';
 import { emitEvent } from '../db/eventQueue.js';
+import { buildNextSteps } from '../constants/workflows.js';
+import { suggestAgentsForTask, suggestToolsForTask } from './claudeCodeSync.js';
+import { getSupabaseClient } from '../db/supabase.js';
 // Parse and validate LLM response
 function parseAndValidateLLMResponse(content) {
     try {
@@ -183,8 +186,39 @@ export async function decomposeStory(userStory) {
             };
         }
         const userStoryTask = userStoryResult.task;
+        // Get project ID for suggestions
+        const supabase = getSupabaseClient();
+        const { data: taskWithProject } = await supabase
+            .from('tasks')
+            .select('project_id')
+            .eq('id', userStoryTask.id)
+            .single();
+        const projectId = taskWithProject?.project_id;
         // Step 2: Create sub-tasks linked to user story
         for (const taskData of decomposedTasks) {
+            // Get AI-powered suggestions for agent and tools
+            let suggestedAgent;
+            let suggestedTools;
+            if (projectId) {
+                // Get agent suggestion
+                const agentSuggestions = await suggestAgentsForTask({
+                    projectId,
+                    taskDescription: `${taskData.title}. ${taskData.description}`,
+                    taskCategory: undefined, // Could map from tags if needed
+                });
+                if (agentSuggestions.success && agentSuggestions.suggestions.length > 0) {
+                    suggestedAgent = agentSuggestions.suggestions[0]; // Top suggestion
+                }
+                // Get tool suggestions
+                const toolSuggestions = await suggestToolsForTask({
+                    projectId,
+                    taskDescription: `${taskData.title}. ${taskData.description}`,
+                    taskCategory: undefined,
+                });
+                if (toolSuggestions.success && toolSuggestions.suggestions.length > 0) {
+                    suggestedTools = toolSuggestions.suggestions; // Top 3
+                }
+            }
             const result = await createTask({
                 title: taskData.title,
                 description: taskData.description,
@@ -196,6 +230,8 @@ export async function decomposeStory(userStory) {
                     complexity: taskData.complexity,
                     estimatedHours: taskData.estimatedHours,
                     tags: taskData.tags || [],
+                    suggestedAgent,
+                    suggestedTools,
                 },
             });
             if (!result.success || !result.task) {
@@ -235,12 +271,26 @@ export async function decomposeStory(userStory) {
                 }
             }
         }
+        // Build workflow instructions for analyzing all created tasks
+        const taskIds = createdTasks.map(t => t.task.id);
+        const tasksWithoutDeps = createdTasks
+            .filter(t => t.task.dependencies.length === 0)
+            .map(t => ({ taskId: t.task.id, title: t.task.title }));
+        const nextSteps = buildNextSteps('STORY_DECOMPOSED', {
+            taskIds,
+            toolsToCall: tasksWithoutDeps.map(t => ({
+                tool: 'prepare_task_for_execution',
+                params: { taskId: t.taskId }
+            }))
+        });
         return {
             success: true,
             originalStory: userStory,
             tasks: createdTasks,
             dependencyMap,
             totalEstimatedHours: totalEstimatedHours > 0 ? totalEstimatedHours : undefined,
+            nextSteps,
+            recommendedAnalysisOrder: tasksWithoutDeps,
         };
     }
     catch (error) {

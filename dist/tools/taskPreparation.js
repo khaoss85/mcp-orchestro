@@ -6,6 +6,7 @@
  */
 import { getTask } from './task.js';
 import { getSimilarLearnings } from './knowledge.js';
+import { buildNextSteps } from '../constants/workflows.js';
 /**
  * Prepares a task for execution by generating a structured analysis request for Claude Code
  *
@@ -35,6 +36,8 @@ export async function prepareTaskForExecution(taskId) {
         risksToIdentify,
         similarLearnings,
     });
+    // Build workflow instructions
+    const workflowInstructions = buildNextSteps('ANALYSIS_PREPARED', { taskId: task.id });
     return {
         taskId: task.id,
         taskTitle: task.title,
@@ -43,6 +46,7 @@ export async function prepareTaskForExecution(taskId) {
         searchPatterns,
         filesToCheck,
         risksToIdentify,
+        workflowInstructions,
     };
 }
 /**

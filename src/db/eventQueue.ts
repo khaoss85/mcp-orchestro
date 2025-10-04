@@ -2,7 +2,7 @@ import { getSupabaseClient } from './supabase.js';
 
 export interface QueuedEvent {
   id?: string;
-  event_type: 'task_created' | 'task_updated' | 'feedback_received' | 'codebase_analyzed' | 'decision_made' | 'guardian_intervention' | 'code_changed' | 'status_transition' | 'user_story_created';
+  event_type: 'task_created' | 'task_updated' | 'task_deleted' | 'feedback_received' | 'codebase_analyzed' | 'decision_made' | 'guardian_intervention' | 'code_changed' | 'status_transition' | 'user_story_created' | 'dependency_added' | 'dependency_removed' | 'execution_order_changed';
   payload: any;
   processed?: boolean;
   created_at?: string;
@@ -57,4 +57,45 @@ export async function markEventProcessed(eventId: string): Promise<void> {
   if (error) {
     console.error('Failed to mark event as processed:', error);
   }
+}
+
+/**
+ * Emit a dependency_added event
+ */
+export async function emitDependencyAdded(
+  taskId: string,
+  resourceId: string,
+  resourceName: string,
+  action: string
+): Promise<void> {
+  await emitEvent('dependency_added', {
+    taskId,
+    resourceId,
+    resourceName,
+    action
+  });
+}
+
+/**
+ * Emit a dependency_removed event
+ */
+export async function emitDependencyRemoved(
+  taskId: string,
+  resourceId: string,
+  resourceName: string
+): Promise<void> {
+  await emitEvent('dependency_removed', {
+    taskId,
+    resourceId,
+    resourceName
+  });
+}
+
+/**
+ * Emit an execution_order_changed event
+ */
+export async function emitExecutionOrderChanged(affectedTasks: string[]): Promise<void> {
+  await emitEvent('execution_order_changed', {
+    affectedTasks
+  });
 }

@@ -3,6 +3,7 @@ import { cache } from '../db/cache.js';
 import { getRelevantKnowledge } from './knowledge.js';
 import { getProjectInfo } from './project.js';
 import { emitEvent } from '../db/eventQueue.js';
+import { buildNextSteps } from '../constants/workflows.js';
 // Cache configuration
 const TASK_CACHE_TTL = 5 * 60 * 1000; // 5 minutes (dynamic data)
 const TASK_LIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -69,7 +70,7 @@ async function rowsToTasks(rows) {
 }
 // Create a new task
 export async function createTask(params) {
-    const { title, description, status = 'backlog', dependencies = [], assignee, priority, tags = [], userStoryId, isUserStory, storyMetadata } = params;
+    const { title, description, status = 'backlog', dependencies = [], assignee, priority, tags = [], category, userStoryId, isUserStory, storyMetadata } = params;
     const supabase = getSupabaseClient();
     return withRetry(async () => {
         try {
@@ -86,6 +87,7 @@ export async function createTask(params) {
                 assignee: assignee || null,
                 priority: priority || null,
                 tags: tags || [],
+                category: category || null,
                 user_story_id: userStoryId || null,
                 is_user_story: isUserStory || false,
                 story_metadata: storyMetadata || {},
@@ -125,7 +127,9 @@ export async function createTask(params) {
             // Invalidate caches
             cache.clearPattern('tasks:*');
             cache.set(`task:${task.id}`, task, TASK_CACHE_TTL);
-            return { success: true, task };
+            // Build workflow instructions to guide Claude Code
+            const nextSteps = buildNextSteps('TASK_CREATED', { taskId: task.id });
+            return { success: true, task, nextSteps };
         }
         catch (error) {
             return { success: false, error: `Failed to create task: ${error.message}` };
@@ -134,7 +138,7 @@ export async function createTask(params) {
 }
 // List all tasks
 export async function listTasks(params) {
-    const cacheKey = `tasks:list:${params?.status || 'all'}`;
+    const cacheKey = `tasks:list:${params?.status || 'all'}:${params?.category || 'all'}`;
     const cached = cache.get(cacheKey);
     if (cached)
         return cached;
@@ -147,6 +151,9 @@ export async function listTasks(params) {
         if (params?.status) {
             query = query.eq('status', params.status);
         }
+        if (params?.category) {
+            query = query.eq('category', params.category);
+        }
         const { data, error } = await query;
         if (error) {
             throw new Error(`Failed to list tasks: ${error.message}`);
@@ -158,7 +165,7 @@ export async function listTasks(params) {
 }
 // Update a task
 export async function updateTask(params) {
-    const { id, title, description, status, dependencies, assignee, priority, tags } = params;
+    const { id, title, description, status, dependencies, assignee, priority, tags, category } = params;
     const supabase = getSupabaseClient();
     return withRetry(async () => {
         try {
@@ -185,6 +192,8 @@ export async function updateTask(params) {
                 updates.priority = priority;
             if (tags !== undefined)
                 updates.tags = tags;
+            if (category !== undefined)
+                updates.category = category;
             // Update task (triggers will validate status transitions and dependency completion)
             if (Object.keys(updates).length > 0) {
                 const { data: updatedRow, error: updateError } = await supabase
@@ -350,6 +359,8 @@ export async function deleteTask(id) {
             }
             // Invalidate caches
             cache.clearPattern('tasks:*');
+            // Emit task_deleted event for real-time updates
+            await emitEvent('task_deleted', { taskId: id });
             return { success: true };
         }
         catch (error) {
@@ -590,5 +601,84 @@ export async function getTasksByUserStory(userStoryId) {
             throw new Error(`Failed to get tasks for user story: ${error.message}`);
         }
         return rowsToTasks(data || []);
+    });
+}
+// Safe delete tasks by status - preserves user stories with completed work
+export async function safeDeleteTasksByStatus(params) {
+    const { status } = params;
+    const supabase = getSupabaseClient();
+    return withRetry(async () => {
+        try {
+            // Call the safe delete function
+            const { data, error } = await supabase.rpc('safe_delete_tasks_by_status', {
+                p_status: status,
+            });
+            if (error) {
+                return {
+                    success: false,
+                    deletedCount: 0,
+                    preservedCount: 0,
+                    deletedTaskIds: [],
+                    preservedTasks: [],
+                    error: `Failed to delete tasks: ${error.message}`,
+                };
+            }
+            const result = data[0];
+            // Parse preserved reasons
+            const preservedTasks = (result.preserved_reasons || []).map((reason) => ({
+                id: reason.task_id,
+                title: reason.title,
+                reason: reason.reason,
+                completionPercentage: reason.completion_percentage,
+                doneTasks: reason.done_tasks,
+                totalTasks: reason.total_tasks,
+            }));
+            // Invalidate caches
+            cache.clearPattern('tasks:*');
+            return {
+                success: true,
+                deletedCount: result.deleted_count || 0,
+                preservedCount: result.preserved_count || 0,
+                deletedTaskIds: result.deleted_task_ids || [],
+                preservedTasks,
+            };
+        }
+        catch (error) {
+            return {
+                success: false,
+                deletedCount: 0,
+                preservedCount: 0,
+                deletedTaskIds: [],
+                preservedTasks: [],
+                error: `Failed to delete tasks: ${error.message}`,
+            };
+        }
+    });
+}
+// Get user story health metrics
+export async function getUserStoryHealth() {
+    const supabase = getSupabaseClient();
+    return withRetry(async () => {
+        const { data, error } = await supabase
+            .from('user_stories_health')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) {
+            throw new Error(`Failed to get user story health: ${error.message}`);
+        }
+        return (data || []).map((row) => ({
+            userStoryId: row.user_story_id,
+            userStoryTitle: row.user_story_title,
+            currentStatus: row.current_status,
+            suggestedStatus: row.suggested_status,
+            totalSubtasks: row.total_subtasks,
+            doneCount: row.done_count,
+            inProgressCount: row.in_progress_count,
+            todoCount: row.todo_count,
+            backlogCount: row.backlog_count,
+            completionPercentage: row.completion_percentage || 0,
+            statusMismatch: row.status_mismatch,
+            safeToDelete: row.safe_to_delete,
+        }));
     });
 }
