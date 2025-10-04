@@ -3,6 +3,7 @@ import { cache } from '../db/cache.js';
 import { getRelevantKnowledge } from './knowledge.js';
 import { getProjectInfo } from './project.js';
 import { emitEvent } from '../db/eventQueue.js';
+import { buildNextSteps } from '../constants/workflows.js';
 
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'done';
 
@@ -15,6 +16,7 @@ export interface Task {
   assignee?: string | null;
   priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
   tags?: string[];
+  category?: 'design_frontend' | 'backend_database' | 'test_fix' | null;
   userStoryId?: string | null;
   isUserStory: boolean;
   storyMetadata?: {
@@ -22,6 +24,19 @@ export interface Task {
     estimatedHours?: number;
     tags?: string[];
     originalStory?: string;
+    estimatedTotalHours?: number;
+    suggestedAgent?: {
+      agentName: string;
+      agentType: string;
+      reason: string;
+      confidence: number;
+    };
+    suggestedTools?: Array<{
+      toolName: string;
+      category: string;
+      reason: string;
+      confidence: number;
+    }>;
   };
   createdAt: string;
   updatedAt: string;
@@ -37,6 +52,7 @@ interface TaskRow {
   assignee?: string | null;
   priority?: string | null;
   tags?: string[];
+  category?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -128,11 +144,12 @@ export async function createTask(params: {
   assignee?: string | null;
   priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
   tags?: string[];
+  category?: 'design_frontend' | 'backend_database' | 'test_fix' | null;
   userStoryId?: string | null;
   isUserStory?: boolean;
   storyMetadata?: any;
 }): Promise<{ success: boolean; task?: Task; error?: string }> {
-  const { title, description, status = 'backlog', dependencies = [], assignee, priority, tags = [], userStoryId, isUserStory, storyMetadata } = params;
+  const { title, description, status = 'backlog', dependencies = [], assignee, priority, tags = [], category, userStoryId, isUserStory, storyMetadata } = params;
 
   const supabase = getSupabaseClient();
 
@@ -152,6 +169,7 @@ export async function createTask(params: {
           assignee: assignee || null,
           priority: priority || null,
           tags: tags || [],
+          category: category || null,
           user_story_id: userStoryId || null,
           is_user_story: isUserStory || false,
           story_metadata: storyMetadata || {},
@@ -202,7 +220,10 @@ export async function createTask(params: {
       cache.clearPattern('tasks:*');
       cache.set(`task:${task.id}`, task, TASK_CACHE_TTL);
 
-      return { success: true, task };
+      // Build workflow instructions to guide Claude Code
+      const nextSteps = buildNextSteps('TASK_CREATED', { taskId: task.id });
+
+      return { success: true, task, nextSteps };
     } catch (error) {
       return { success: false, error: `Failed to create task: ${(error as Error).message}` };
     }
@@ -212,8 +233,9 @@ export async function createTask(params: {
 // List all tasks
 export async function listTasks(params?: {
   status?: TaskStatus;
+  category?: 'design_frontend' | 'backend_database' | 'test_fix';
 }): Promise<Task[]> {
-  const cacheKey = `tasks:list:${params?.status || 'all'}`;
+  const cacheKey = `tasks:list:${params?.status || 'all'}:${params?.category || 'all'}`;
   const cached = cache.get<Task[]>(cacheKey);
   if (cached) return cached;
 
@@ -227,6 +249,10 @@ export async function listTasks(params?: {
 
     if (params?.status) {
       query = query.eq('status', params.status);
+    }
+
+    if (params?.category) {
+      query = query.eq('category', params.category);
     }
 
     const { data, error } = await query;
@@ -252,8 +278,9 @@ export async function updateTask(params: {
   assignee?: string | null;
   priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
   tags?: string[];
+  category?: 'design_frontend' | 'backend_database' | 'test_fix' | null;
 }): Promise<{ success: boolean; task?: Task; error?: string }> {
-  const { id, title, description, status, dependencies, assignee, priority, tags } = params;
+  const { id, title, description, status, dependencies, assignee, priority, tags, category } = params;
 
   const supabase = getSupabaseClient();
 
@@ -278,6 +305,7 @@ export async function updateTask(params: {
       if (assignee !== undefined) updates.assignee = assignee;
       if (priority !== undefined) updates.priority = priority;
       if (tags !== undefined) updates.tags = tags;
+      if (category !== undefined) updates.category = category;
 
       // Update task (triggers will validate status transitions and dependency completion)
       if (Object.keys(updates).length > 0) {
@@ -467,6 +495,9 @@ export async function deleteTask(id: string): Promise<{ success: boolean; error?
 
       // Invalidate caches
       cache.clearPattern('tasks:*');
+
+      // Emit task_deleted event for real-time updates
+      await emitEvent('task_deleted', { taskId: id });
 
       return { success: true };
     } catch (error) {
@@ -797,5 +828,123 @@ export async function getTasksByUserStory(userStoryId: string): Promise<Task[]> 
     }
 
     return rowsToTasks(data || []);
+  });
+}
+
+// Safe delete tasks by status - preserves user stories with completed work
+export async function safeDeleteTasksByStatus(params: {
+  status: TaskStatus;
+}): Promise<{
+  success: boolean;
+  deletedCount: number;
+  preservedCount: number;
+  deletedTaskIds: string[];
+  preservedTasks: Array<{
+    id: string;
+    title: string;
+    reason: string;
+    completionPercentage?: number;
+    doneTasks?: number;
+    totalTasks?: number;
+  }>;
+  error?: string;
+}> {
+  const { status } = params;
+  const supabase = getSupabaseClient();
+
+  return withRetry(async () => {
+    try {
+      // Call the safe delete function
+      const { data, error } = await supabase.rpc('safe_delete_tasks_by_status', {
+        p_status: status,
+      });
+
+      if (error) {
+        return {
+          success: false,
+          deletedCount: 0,
+          preservedCount: 0,
+          deletedTaskIds: [],
+          preservedTasks: [],
+          error: `Failed to delete tasks: ${error.message}`,
+        };
+      }
+
+      const result = data[0];
+
+      // Parse preserved reasons
+      const preservedTasks = (result.preserved_reasons || []).map((reason: any) => ({
+        id: reason.task_id,
+        title: reason.title,
+        reason: reason.reason,
+        completionPercentage: reason.completion_percentage,
+        doneTasks: reason.done_tasks,
+        totalTasks: reason.total_tasks,
+      }));
+
+      // Invalidate caches
+      cache.clearPattern('tasks:*');
+
+      return {
+        success: true,
+        deletedCount: result.deleted_count || 0,
+        preservedCount: result.preserved_count || 0,
+        deletedTaskIds: result.deleted_task_ids || [],
+        preservedTasks,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        deletedCount: 0,
+        preservedCount: 0,
+        deletedTaskIds: [],
+        preservedTasks: [],
+        error: `Failed to delete tasks: ${(error as Error).message}`,
+      };
+    }
+  });
+}
+
+// Get user story health metrics
+export async function getUserStoryHealth(): Promise<Array<{
+  userStoryId: string;
+  userStoryTitle: string;
+  currentStatus: TaskStatus;
+  suggestedStatus: TaskStatus;
+  totalSubtasks: number;
+  doneCount: number;
+  inProgressCount: number;
+  todoCount: number;
+  backlogCount: number;
+  completionPercentage: number;
+  statusMismatch: boolean;
+  safeToDelete: boolean;
+}>> {
+  const supabase = getSupabaseClient();
+
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from('user_stories_health')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to get user story health: ${error.message}`);
+    }
+
+    return (data || []).map((row: any) => ({
+      userStoryId: row.user_story_id,
+      userStoryTitle: row.user_story_title,
+      currentStatus: row.current_status,
+      suggestedStatus: row.suggested_status,
+      totalSubtasks: row.total_subtasks,
+      doneCount: row.done_count,
+      inProgressCount: row.in_progress_count,
+      todoCount: row.todo_count,
+      backlogCount: row.backlog_count,
+      completionPercentage: row.completion_percentage || 0,
+      statusMismatch: row.status_mismatch,
+      safeToDelete: row.safe_to_delete,
+    }));
   });
 }
