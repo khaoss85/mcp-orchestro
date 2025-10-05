@@ -2,7 +2,7 @@ import { getSupabaseClient } from './supabase.js';
 
 export interface QueuedEvent {
   id?: string;
-  event_type: 'task_created' | 'task_updated' | 'task_deleted' | 'feedback_received' | 'codebase_analyzed' | 'decision_made' | 'guardian_intervention' | 'code_changed' | 'status_transition' | 'user_story_created' | 'user_story_deleted' | 'dependency_added' | 'dependency_removed' | 'execution_order_changed';
+  event_type: 'task_created' | 'task_updated' | 'task_deleted' | 'feedback_received' | 'codebase_analyzed' | 'decision_made' | 'guardian_intervention' | 'code_changed' | 'status_transition' | 'user_story_created' | 'user_story_deleted' | 'dependency_added' | 'dependency_removed' | 'execution_order_changed' | 'auto_analysis_started' | 'task_analysis_prepared' | 'auto_analysis_completed';
   payload: any;
   processed?: boolean;
   created_at?: string;

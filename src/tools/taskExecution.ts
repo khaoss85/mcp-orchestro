@@ -189,6 +189,9 @@ export async function getExecutionOrder(params?: {
 
       if (params?.userStoryId) {
         query = query.eq('user_story_id', params.userStoryId);
+      } else {
+        // Exclude orphaned tasks when no userStoryId filter
+        query = query.not('user_story_id', 'is', null);
       }
 
       if (params?.status) {
