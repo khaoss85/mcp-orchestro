@@ -198,8 +198,30 @@ function buildAnalysisPrompt(params: {
 **Title**: ${task.title}
 **Description**: ${task.description}
 **Status**: ${task.status}
+`;
 
-## Your Mission
+  // Add AI-powered suggestions if available
+  if (task.storyMetadata?.suggestedAgent) {
+    const agent = task.storyMetadata.suggestedAgent;
+    prompt += `\n## 🤖 Recommended Sub-Agent
+**Agent**: ${agent.agentName} (${agent.agentType})
+**Confidence**: ${Math.round(agent.confidence * 100)}%
+**Why**: ${agent.reason}
+
+💡 **Tip**: Consider using this Claude Code sub-agent for this task. It's specifically designed for ${agent.agentType} work.
+`;
+  }
+
+  if (task.storyMetadata?.suggestedTools && task.storyMetadata.suggestedTools.length > 0) {
+    prompt += `\n## 🛠️ Recommended MCP Tools\n`;
+    task.storyMetadata.suggestedTools.forEach((tool: any, i: number) => {
+      prompt += `${i + 1}. **${tool.toolName}** (${tool.category}) - ${Math.round(tool.confidence * 100)}% match
+   ${tool.reason}\n`;
+    });
+    prompt += `\n💡 **Tip**: These MCP tools are recommended based on the task description.\n`;
+  }
+
+  prompt += `\n## Your Mission
 Analyze the codebase to prepare for implementing this task. Use your Read, Grep, and Glob tools to gather the following information.
 
 ## 1. Search for Related Code
