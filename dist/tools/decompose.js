@@ -260,14 +260,61 @@ export async function decomposeStory(userStory) {
             const createdTaskInfo = createdTasks[i];
             if (taskData.dependencies.length > 0) {
                 const dependencyIds = resolveDependencyIds(taskData.dependencies, titleToIdMap);
-                // Update the task's dependencies field directly (in-memory mutation)
-                createdTaskInfo.task.dependencies = dependencyIds;
-                // Build reverse dependency map (who depends on this task)
-                for (const depId of dependencyIds) {
-                    if (!dependencyMap[depId]) {
-                        dependencyMap[depId] = [];
+                if (dependencyIds.length > 0) {
+                    // Batch fetch user_story_id for all dependency tasks
+                    const { data: depTasks, error: fetchError } = await supabase
+                        .from('tasks')
+                        .select('id, user_story_id, title')
+                        .in('id', dependencyIds);
+                    if (fetchError) {
+                        return {
+                            success: false,
+                            originalStory: userStory,
+                            error: `Failed to validate dependencies: ${fetchError.message}`
+                        };
                     }
-                    dependencyMap[depId].push(createdTaskInfo.task.id);
+                    // Validate same user story
+                    const invalidDeps = depTasks?.filter(dep => dep.user_story_id !== userStoryTask.id) || [];
+                    if (invalidDeps.length > 0) {
+                        const invalidTitles = invalidDeps.map(d => d.title).join(', ');
+                        return {
+                            success: false,
+                            originalStory: userStory,
+                            error: `Cross-story dependencies detected: Task "${createdTaskInfo.task.title}" cannot depend on tasks from different user stories. Invalid dependencies: ${invalidTitles}`
+                        };
+                    }
+                    // FIX BUG - INSERT into database (previously missing!)
+                    const dependencyRows = dependencyIds.map(depId => ({
+                        task_id: createdTaskInfo.task.id,
+                        depends_on_task_id: depId,
+                    }));
+                    const { error: insertError } = await supabase
+                        .from('task_dependencies')
+                        .insert(dependencyRows);
+                    if (insertError) {
+                        // Handle circular deps, foreign key violations
+                        if (insertError.message.includes('Circular dependency')) {
+                            return {
+                                success: false,
+                                originalStory: userStory,
+                                error: `Circular dependency detected in task "${createdTaskInfo.task.title}"`
+                            };
+                        }
+                        return {
+                            success: false,
+                            originalStory: userStory,
+                            error: `Failed to create dependencies: ${insertError.message}`
+                        };
+                    }
+                    // Keep existing in-memory update
+                    createdTaskInfo.task.dependencies = dependencyIds;
+                    // Build reverse dependency map (who depends on this task)
+                    for (const depId of dependencyIds) {
+                        if (!dependencyMap[depId]) {
+                            dependencyMap[depId] = [];
+                        }
+                        dependencyMap[depId].push(createdTaskInfo.task.id);
+                    }
                 }
             }
         }

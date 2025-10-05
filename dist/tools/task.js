@@ -368,6 +368,119 @@ export async function deleteTask(id) {
         }
     });
 }
+// Delete user story and all its sub-tasks
+export async function deleteUserStory(params) {
+    const { userStoryId, force = false } = params;
+    const supabase = getSupabaseClient();
+    return withRetry(async () => {
+        try {
+            // Check if user story exists and is indeed a user story
+            const { data: userStory, error: fetchError } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('id', userStoryId)
+                .eq('is_user_story', true)
+                .single();
+            if (fetchError || !userStory) {
+                return {
+                    success: false,
+                    error: `User story with id ${userStoryId} not found or is not a user story`
+                };
+            }
+            // Fetch all sub-tasks for this user story
+            const { data: subTasks, error: subTasksError } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('user_story_id', userStoryId)
+                .eq('is_user_story', false);
+            if (subTasksError) {
+                return {
+                    success: false,
+                    error: `Failed to fetch sub-tasks: ${subTasksError.message}`
+                };
+            }
+            const subTasksList = subTasks || [];
+            // Check if there are completed sub-tasks and force is not true
+            if (!force && subTasksList.some(task => task.status === 'done')) {
+                const completedCount = subTasksList.filter(task => task.status === 'done').length;
+                return {
+                    success: false,
+                    error: `Cannot delete user story with ${completedCount} completed sub-task(s). Use force=true to delete anyway.`,
+                    warning: `This user story has completed work that will be lost if deleted.`
+                };
+            }
+            // Check for external dependencies (other tasks depending on this user story's sub-tasks)
+            const subTaskIds = subTasksList.map(t => t.id);
+            if (subTaskIds.length > 0) {
+                const { data: externalDependents, error: extDepsError } = await supabase
+                    .from('task_dependencies')
+                    .select('task_id, depends_on_task_id')
+                    .in('depends_on_task_id', subTaskIds);
+                if (extDepsError) {
+                    return {
+                        success: false,
+                        error: `Failed to check external dependencies: ${extDepsError.message}`
+                    };
+                }
+                if (externalDependents && externalDependents.length > 0) {
+                    // Fetch details of external dependent tasks
+                    const externalTaskIds = externalDependents
+                        .map(d => d.task_id)
+                        .filter(id => !subTaskIds.includes(id)); // Only external tasks
+                    if (externalTaskIds.length > 0) {
+                        const { data: externalTasks } = await supabase
+                            .from('tasks')
+                            .select('id, title, user_story_id')
+                            .in('id', externalTaskIds)
+                            .limit(3);
+                        if (externalTasks && externalTasks.length > 0) {
+                            const taskList = externalTasks
+                                .map(t => `- ${t.title} (${t.id})`)
+                                .join('\n');
+                            return {
+                                success: false,
+                                error: `Cannot delete user story because external tasks depend on its sub-tasks:\n${taskList}${externalTasks.length > 3 ? `\n... and ${externalTaskIds.length - 3} more` : ''}`
+                            };
+                        }
+                    }
+                }
+            }
+            // Convert rows to Task objects for response
+            const deletedUserStoryTask = await rowsToTasks([userStory]);
+            const deletedSubTasksList = subTasksList.length > 0 ? await rowsToTasks(subTasksList) : [];
+            // Delete user story (CASCADE will delete sub-tasks and dependencies)
+            const { error: deleteError } = await supabase
+                .from('tasks')
+                .delete()
+                .eq('id', userStoryId);
+            if (deleteError) {
+                return {
+                    success: false,
+                    error: `Failed to delete user story: ${deleteError.message}`
+                };
+            }
+            // Invalidate caches
+            cache.clearPattern('tasks:*');
+            // Emit user_story_deleted event for real-time updates
+            await emitEvent('user_story_deleted', {
+                userStoryId,
+                deletedSubTaskCount: subTasksList.length,
+                force
+            });
+            return {
+                success: true,
+                deletedUserStory: deletedUserStoryTask[0],
+                deletedSubTasks: deletedSubTasksList
+            };
+        }
+        catch (error) {
+            return {
+                success: false,
+                error: `Failed to delete user story: ${error.message}`
+            };
+        }
+    });
+}
 // Get comprehensive task context for Claude Code
 export async function getTaskContext(id) {
     const supabase = getSupabaseClient();

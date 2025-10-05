@@ -3,7 +3,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
 import { getProjectInfo } from "./tools/project.js";
-import { createTask, listTasks, updateTask, deleteTask, getTaskContext, getUserStories, getTasksByUserStory, safeDeleteTasksByStatus, getUserStoryHealth } from "./tools/task.js";
+import { createTask, listTasks, updateTask, deleteTask, deleteUserStory, getTaskContext, getUserStories, getTasksByUserStory, safeDeleteTasksByStatus, getUserStoryHealth } from "./tools/task.js";
 import { listTemplates, listPatterns, listLearnings, renderTemplate, getRelevantKnowledge, addFeedback, getSimilarLearnings, getTopPatterns, getTrendingPatterns, getPatternStats, detectFailurePatterns, checkPatternRisk } from "./tools/knowledge.js";
 import { decomposeStory } from "./tools/decompose.js";
 import { saveDependencies, getTaskDependencyGraph, getResourceUsage, getTaskConflicts } from "./tools/dependencies.js";
@@ -653,6 +653,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 inputSchema: {
                     type: "object",
                     properties: {},
+                },
+            },
+            {
+                name: "delete_user_story",
+                description: "Delete a user story and all its sub-tasks. Checks for completed work and external dependencies. Use force=true to delete user stories with completed sub-tasks.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        userStoryId: {
+                            type: "string",
+                            description: "UUID of the user story to delete",
+                        },
+                        force: {
+                            type: "boolean",
+                            description: "Force deletion even if there are completed sub-tasks (default: false)",
+                        },
+                    },
+                    required: ["userStoryId"],
                 },
             },
             {
@@ -1797,6 +1815,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 isError: true,
             };
         }
+    }
+    if (name === "delete_user_story") {
+        const result = await deleteUserStory(args);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(result, null, 2),
+                },
+            ],
+            isError: !result.success,
+        };
     }
     if (name === "get_project_configuration") {
         try {

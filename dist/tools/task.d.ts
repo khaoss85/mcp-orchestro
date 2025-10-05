@@ -74,6 +74,16 @@ export declare function deleteTask(id: string): Promise<{
     success: boolean;
     error?: string;
 }>;
+export declare function deleteUserStory(params: {
+    userStoryId: string;
+    force?: boolean;
+}): Promise<{
+    success: boolean;
+    deletedUserStory?: Task;
+    deletedSubTasks?: Task[];
+    error?: string;
+    warning?: string;
+}>;
 export interface TaskContext {
     task: Task;
     dependencies: Task[];
