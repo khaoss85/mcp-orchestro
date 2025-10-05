@@ -349,7 +349,7 @@ PM writes story → AI decomposes → Dev implements → All see progress
 - `get_execution_prompt` - Enriched implementation context
 
 ### 📖 User Stories (4 tools)
-- `decompose_story` - AI-powered story → tasks decomposition
+- `decompose_story` - AI-powered story → tasks decomposition with automatic analysis (autoAnalyze=true default)
 - `get_user_stories` - List all user stories
 - `get_tasks_by_user_story` - Get all child tasks
 - `get_user_story_health` - Monitor story completion status
@@ -516,37 +516,45 @@ credit card payment and email confirmation"
 
 **Total**: 18 hours, 6 tasks, dependencies mapped automatically
 
-**Developer flow**:
+**Developer flow** (with autoAnalyze=true):
 ```typescript
-// 1. Claude picks first task
-prepare_task_for_execution("task-1-id")
-// → Generates analysis prompt
+// 1. Decompose story (auto-analyzes tasks)
+decompose_story("Customer checkout with payment")
+// → Creates 6 tasks
+// → Auto-generates analysis prompts for tasks without dependencies
+// → Returns analysisPrompts[] ready to use
 
-// 2. Claude analyzes codebase
+// 2. Claude reviews analysis prompts
+// Prompts include: files to check, patterns to find, risks to identify
+
+// 3. Claude analyzes codebase using the prompts
 // Finds: existing payment tables, similar schemas
 // Risks: None (new table)
 
-// 3. Save analysis
+// 4. Save analysis results
 save_task_analysis({
+  taskId: "task-1-id",
   filesToCreate: ["migrations/002_checkout.sql"],
   dependencies: [{type: "file", name: "001_orders.sql", action: "uses"}],
   risks: []
 })
 
-// 4. Get enriched context
+// 5. Get enriched context
 get_execution_prompt("task-1-id")
 // → Returns: related code, patterns, guidelines
 
-// 5. Implement!
+// 6. Implement!
 // Claude writes migration, runs tests
 
-// 6. Record learning
+// 7. Record learning
 add_feedback({
   pattern: "e-commerce checkout schema",
   type: "success",
   feedback: "Stripe integration smooth"
 })
 ```
+
+**Key improvement**: Step 1 now auto-prepares analysis, reducing manual workflow steps!
 
 **PM sees**:
 - ✅ Task 1 → Done (real-time update)
@@ -736,6 +744,7 @@ We welcome contributions from PMs, Developers, and AI enthusiasts!
 
 ### v2.2.0 (2025-10-04) - Current 🎉
 - ✅ **60 MCP Tools** - Expanded from 27 to 60 production-ready tools
+- ✅ **Automatic Task Analysis** - decompose_story now auto-prepares analysis prompts (autoAnalyze=true default)
 - ✅ **Project Configuration System** - Complete tech stack, agents, tools management
 - ✅ **Claude Code Agent Sync** - Automatic sync with .claude/agents/ directory
 - ✅ **AI Agent/Tool Suggestions** - Smart recommendations for tasks
