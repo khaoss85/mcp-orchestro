@@ -286,13 +286,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: "decompose_story",
-                description: "Decomposes a user story into technical tasks using AI, with automatic dependency detection and complexity estimation. ⚠️ IMPORTANT: The tool response includes automatic workflow guidance (nextSteps field) for analyzing each created task. Follow the nextSteps and recommendedAnalysisOrder to analyze tasks efficiently.",
+                description: "Decomposes a user story into technical tasks using AI, with automatic dependency detection and complexity estimation. ⚠️ IMPORTANT: The tool response includes automatic workflow guidance (nextSteps field) for analyzing each created task. Follow the nextSteps and recommendedAnalysisOrder to analyze tasks efficiently. Set autoAnalyze=true to automatically prepare analysis prompts for all tasks.",
                 inputSchema: {
                     type: "object",
                     properties: {
                         userStory: {
                             type: "string",
                             description: "The user story to decompose (e.g., 'User should be able to login with email')",
+                        },
+                        autoAnalyze: {
+                            type: "boolean",
+                            description: "If true, automatically prepares analysis prompts for all tasks without dependencies (default: true)",
                         },
                     },
                     required: ["userStory"],
@@ -1550,7 +1554,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
     }
     if (name === "decompose_story") {
-        const result = await decomposeStory(args.userStory);
+        const result = await decomposeStory(args.userStory, args.autoAnalyze);
         return {
             content: [
                 {

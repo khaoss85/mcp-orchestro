@@ -7,6 +7,7 @@ import { emitEvent } from '../db/eventQueue.js';
 import { buildNextSteps } from '../constants/workflows.js';
 import { suggestAgentsForTask, suggestToolsForTask } from './claudeCodeSync.js';
 import { getSupabaseClient } from '../db/supabase.js';
+import { prepareTaskForExecution } from './taskPreparation.js';
 // Parse and validate LLM response
 function parseAndValidateLLMResponse(content) {
     try {
@@ -107,7 +108,7 @@ Rules:
 - Use existing patterns when applicable`;
 }
 // Main decomposition function
-export async function decomposeStory(userStory) {
+export async function decomposeStory(userStory, autoAnalyze = true) {
     try {
         // Validate input
         if (!userStory || userStory.trim().length === 0) {
@@ -323,13 +324,63 @@ export async function decomposeStory(userStory) {
         const tasksWithoutDeps = createdTasks
             .filter(t => t.task.dependencies.length === 0)
             .map(t => ({ taskId: t.task.id, title: t.task.title }));
-        const nextSteps = buildNextSteps('STORY_DECOMPOSED', {
-            taskIds,
-            toolsToCall: tasksWithoutDeps.map(t => ({
-                tool: 'prepare_task_for_execution',
-                params: { taskId: t.taskId }
-            }))
-        });
+        let nextSteps;
+        let analysisPrompts;
+        // AUTO-ANALYZE: Automatically prepare analysis prompts when requested
+        if (autoAnalyze && tasksWithoutDeps.length > 0) {
+            // Emit event for auto-analysis start
+            await emitEvent('auto_analysis_started', {
+                user_story_id: userStoryTask.id,
+                task_count: tasksWithoutDeps.length,
+                task_ids: tasksWithoutDeps.map(t => t.taskId),
+            });
+            // Prepare analysis for all tasks without dependencies
+            const prompts = [];
+            for (const task of tasksWithoutDeps) {
+                try {
+                    const analysisRequest = await prepareTaskForExecution(task.taskId);
+                    prompts.push({
+                        taskId: task.taskId,
+                        title: task.title,
+                        prompt: analysisRequest.prompt,
+                    });
+                    // Emit event for each task analyzed
+                    await emitEvent('task_analysis_prepared', {
+                        task_id: task.taskId,
+                        task_title: task.title,
+                        patterns_count: analysisRequest.searchPatterns.length,
+                        risks_count: analysisRequest.risksToIdentify.length,
+                    });
+                }
+                catch (error) {
+                    console.error(`Failed to prepare analysis for task ${task.taskId}:`, error);
+                    // Continue with other tasks even if one fails
+                }
+            }
+            analysisPrompts = prompts;
+            // Build enhanced nextSteps for auto-analyzed tasks
+            nextSteps = buildNextSteps('AUTO_ANALYSIS_COMPLETE', {
+                taskIds,
+                analyzedTaskIds: prompts.map(p => p.taskId),
+                message: `✅ Auto-analysis complete! ${prompts.length} tasks analyzed and ready for implementation.`,
+            });
+            // Emit completion event
+            await emitEvent('auto_analysis_completed', {
+                user_story_id: userStoryTask.id,
+                analyzed_count: prompts.length,
+                total_tasks: createdTasks.length,
+            });
+        }
+        else {
+            // Standard workflow without auto-analysis
+            nextSteps = buildNextSteps('STORY_DECOMPOSED', {
+                taskIds,
+                toolsToCall: tasksWithoutDeps.map(t => ({
+                    tool: 'prepare_task_for_execution',
+                    params: { taskId: t.taskId }
+                }))
+            });
+        }
         return {
             success: true,
             originalStory: userStory,
@@ -338,6 +389,7 @@ export async function decomposeStory(userStory) {
             totalEstimatedHours: totalEstimatedHours > 0 ? totalEstimatedHours : undefined,
             nextSteps,
             recommendedAnalysisOrder: tasksWithoutDeps,
+            analysisPrompts,
         };
     }
     catch (error) {

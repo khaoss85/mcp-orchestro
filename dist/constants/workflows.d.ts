@@ -23,6 +23,12 @@ export declare const WORKFLOW_INSTRUCTIONS: {
         readonly message: "✅ User story decomposed into tasks.\n\n⚠️ IMPORTANT: Each task needs codebase analysis before implementation.\n\n📋 NEXT STEP:\nAnalyze tasks starting with those that have no dependencies. For each task:\n1. Call prepare_task_for_execution({ taskId })\n2. Analyze the codebase using Read/Grep/Glob\n3. Call save_task_analysis() with findings\n\nThis ensures all tasks have complete metadata and dependency mapping.";
         readonly nextTool: "prepare_task_for_execution";
     };
+    readonly AUTO_ANALYSIS_COMPLETE: {
+        readonly action: "review_analysis";
+        readonly step: 1;
+        readonly message: "✅ Auto-analysis complete! Analysis prompts prepared for all tasks without dependencies.\n\n🎯 ANALYSIS PROMPTS READY:\nThe system has automatically prepared detailed analysis prompts for each task.\n\n📋 NEXT STEP:\nReview the analysis prompts in the analysisPrompts field and execute them:\n1. Read each task's analysis prompt\n2. Use Read/Grep/Glob tools to perform the codebase analysis\n3. Call save_task_analysis() for each task with your findings\n\nOnce all tasks are analyzed, you can start implementation by calling get_execution_prompt() for each task.";
+        readonly nextTool: "save_task_analysis";
+    };
     readonly ANALYSIS_PREPARED: {
         readonly action: "analyze_codebase";
         readonly step: 1;
@@ -69,6 +75,8 @@ export declare function buildNextSteps(workflowStage: WorkflowStage, params?: {
         tool: string;
         params: Record<string, any>;
     }>;
+    analyzedTaskIds?: string[];
+    message?: string;
 }): NextSteps;
 /**
  * Formats a workflow message with consistent styling

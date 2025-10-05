@@ -26,5 +26,10 @@ export interface DecompositionResult {
         taskId: string;
         title: string;
     }>;
+    analysisPrompts?: Array<{
+        taskId: string;
+        title: string;
+        prompt: string;
+    }>;
 }
-export declare function decomposeStory(userStory: string): Promise<DecompositionResult>;
+export declare function decomposeStory(userStory: string, autoAnalyze?: boolean): Promise<DecompositionResult>;

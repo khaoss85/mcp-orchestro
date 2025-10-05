@@ -34,6 +34,23 @@ Analyze tasks starting with those that have no dependencies. For each task:
 This ensures all tasks have complete metadata and dependency mapping.`,
         nextTool: 'prepare_task_for_execution'
     },
+    AUTO_ANALYSIS_COMPLETE: {
+        action: 'review_analysis',
+        step: 1,
+        message: `✅ Auto-analysis complete! Analysis prompts prepared for all tasks without dependencies.
+
+🎯 ANALYSIS PROMPTS READY:
+The system has automatically prepared detailed analysis prompts for each task.
+
+📋 NEXT STEP:
+Review the analysis prompts in the analysisPrompts field and execute them:
+1. Read each task's analysis prompt
+2. Use Read/Grep/Glob tools to perform the codebase analysis
+3. Call save_task_analysis() for each task with your findings
+
+Once all tasks are analyzed, you can start implementation by calling get_execution_prompt() for each task.`,
+        nextTool: 'save_task_analysis'
+    },
     ANALYSIS_PREPARED: {
         action: 'analyze_codebase',
         step: 1,

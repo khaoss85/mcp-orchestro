@@ -136,6 +136,7 @@ export async function syncClaudeCodeAgents(params) {
                 name: agent.name,
                 agent_type: agentType,
                 enabled: true,
+                description: agent.description,
                 triggers: [], // Extract from description if needed
                 custom_prompt: agent.prompt,
                 rules: [],

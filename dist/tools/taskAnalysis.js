@@ -212,8 +212,27 @@ function buildExecutionPrompt(params) {
 ## Task Overview
 **Title**: ${task.title}
 **Description**: ${task.description}
+`;
+    // Add AI-powered suggestions if available
+    if (task.storyMetadata?.suggestedAgent) {
+        const agent = task.storyMetadata.suggestedAgent;
+        prompt += `\n## 🤖 Recommended Sub-Agent
+**Agent**: ${agent.agentName} (${agent.agentType})
+**Confidence**: ${Math.round(agent.confidence * 100)}%
+**Why**: ${agent.reason}
 
-## Analysis Summary
+💡 **Tip**: This task is well-suited for the ${agent.agentName} sub-agent. Consider using it for implementation.
+`;
+    }
+    if (task.storyMetadata?.suggestedTools && task.storyMetadata.suggestedTools.length > 0) {
+        prompt += `\n## 🛠️ Recommended MCP Tools\n`;
+        task.storyMetadata.suggestedTools.forEach((tool, i) => {
+            prompt += `${i + 1}. **${tool.toolName}** (${tool.category}) - ${Math.round(tool.confidence * 100)}% match
+   ${tool.reason}\n`;
+        });
+        prompt += `\n💡 **Tip**: These MCP tools can help you complete this task more efficiently.\n`;
+    }
+    prompt += `\n## Analysis Summary
 Based on codebase analysis, you will need to:
 
 `;
