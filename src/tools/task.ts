@@ -6,6 +6,7 @@ import { emitEvent } from '../db/eventQueue.js';
 import { buildNextSteps } from '../constants/workflows.js';
 
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'done';
+export type AnalysisState = 'not_analyzed' | 'prepared' | 'saved' | 'ready';
 
 export interface Task {
   id: string;
@@ -17,6 +18,7 @@ export interface Task {
   priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
   tags?: string[];
   category?: 'design_frontend' | 'backend_database' | 'test_fix' | null;
+  analysisState?: AnalysisState;
   userStoryId?: string | null;
   isUserStory: boolean;
   storyMetadata?: {
@@ -87,6 +89,8 @@ async function rowToTask(row: any): Promise<Task> {
     assignee: row.assignee || null,
     priority: row.priority || null,
     tags: row.tags || [],
+    category: row.category || null,
+    analysisState: row.analysis_state || 'not_analyzed',
     userStoryId: row.user_story_id || null,
     isUserStory: row.is_user_story || false,
     storyMetadata: row.story_metadata || {},
@@ -127,6 +131,8 @@ async function rowsToTasks(rows: any[]): Promise<Task[]> {
     assignee: row.assignee || null,
     priority: row.priority || null,
     tags: row.tags || [],
+    category: row.category || null,
+    analysisState: row.analysis_state || 'not_analyzed',
     userStoryId: row.user_story_id || null,
     isUserStory: row.is_user_story || false,
     storyMetadata: row.story_metadata || {},

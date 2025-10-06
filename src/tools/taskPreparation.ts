@@ -8,6 +8,7 @@
 import { getTask } from './task.js';
 import { getSimilarLearnings } from './knowledge.js';
 import { buildNextSteps } from '../constants/workflows.js';
+import { getSupabaseClient } from '../db/supabase.js';
 
 export interface AnalysisRequest {
   taskId: string;
@@ -57,6 +58,13 @@ export async function prepareTaskForExecution(taskId: string): Promise<AnalysisR
 
   // Build workflow instructions
   const workflowInstructions = buildNextSteps('ANALYSIS_PREPARED', { taskId: task.id });
+
+  // Update analysis state to 'prepared'
+  const supabase = getSupabaseClient();
+  await supabase
+    .from('tasks')
+    .update({ analysis_state: 'prepared' })
+    .eq('id', task.id);
 
   return {
     taskId: task.id,

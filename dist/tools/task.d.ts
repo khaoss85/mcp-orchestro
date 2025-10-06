@@ -1,4 +1,5 @@
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'done';
+export type AnalysisState = 'not_analyzed' | 'prepared' | 'saved' | 'ready';
 export interface Task {
     id: string;
     title: string;
@@ -9,6 +10,7 @@ export interface Task {
     priority?: 'low' | 'medium' | 'high' | 'urgent' | null;
     tags?: string[];
     category?: 'design_frontend' | 'backend_database' | 'test_fix' | null;
+    analysisState?: AnalysisState;
     userStoryId?: string | null;
     isUserStory: boolean;
     storyMetadata?: {
