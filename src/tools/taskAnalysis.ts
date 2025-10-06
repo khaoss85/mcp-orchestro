@@ -224,8 +224,17 @@ export async function getExecutionPrompt(
     context: `${task.title} ${task.description}`,
   });
 
-  // Get project guidelines (from templates or patterns)
-  const guidelines = await getProjectGuidelines();
+  // Get projectId from database (Task interface doesn't include it)
+  const { data: taskRow } = await supabase
+    .from('tasks')
+    .select('project_id')
+    .eq('id', taskId)
+    .single();
+
+  const projectId = taskRow?.project_id || '';
+
+  // Get project guidelines (project-specific + generic)
+  const guidelines = await getProjectGuidelines(projectId);
 
   // Build enriched prompt
   const prompt = buildExecutionPrompt({
@@ -238,6 +247,12 @@ export async function getExecutionPrompt(
 
   // Build workflow instructions
   const nextSteps = buildNextSteps('READY_TO_IMPLEMENT', { taskId: task.id });
+
+  // Update analysis state to 'ready'
+  await supabase
+    .from('tasks')
+    .update({ analysis_state: 'ready' })
+    .eq('id', taskId);
 
   return {
     taskId: task.id,
@@ -258,9 +273,30 @@ export async function getExecutionPrompt(
 
 /**
  * Get project coding guidelines
+ * Combines project-specific guidelines from database with generic coding guidelines
  */
-async function getProjectGuidelines(): Promise<string[]> {
+async function getProjectGuidelines(projectId: string): Promise<string[]> {
   const supabase = getSupabaseClient();
+  const guidelines: string[] = [];
+
+  // 1. Get project-specific guidelines from project_guidelines table
+  const { data: projectGuidelines } = await supabase
+    .from('project_guidelines')
+    .select('guideline_type, title, description')
+    .eq('project_id', projectId)
+    .eq('is_active', true)
+    .order('priority', { ascending: false });
+
+  if (projectGuidelines && projectGuidelines.length > 0) {
+    projectGuidelines.forEach((g: any) => {
+      const prefix = g.guideline_type === 'always' ? '✅ ALWAYS:' :
+                     g.guideline_type === 'never' ? '❌ NEVER:' :
+                     g.guideline_type === 'pattern' ? '📐 PATTERN:' : '📋';
+      guidelines.push(`${prefix} ${g.title} - ${g.description}`);
+    });
+  }
+
+  // 2. Get generic coding guidelines from templates (optional)
   const { data: templates } = await supabase
     .from('templates')
     .select('content')
@@ -269,18 +305,23 @@ async function getProjectGuidelines(): Promise<string[]> {
     .single();
 
   if (templates?.content) {
-    return templates.content.split('\n').filter((line: string) => line.trim());
+    const templateGuidelines = templates.content.split('\n').filter((line: string) => line.trim());
+    guidelines.push(...templateGuidelines);
   }
 
-  // Default guidelines
-  return [
-    'Write clean, readable, and maintainable code',
-    'Follow TypeScript best practices',
-    'Add comprehensive error handling',
-    'Include JSDoc comments for public APIs',
-    'Write tests for new functionality',
-    'Update relevant documentation',
-  ];
+  // 3. Fallback to defaults if nothing found
+  if (guidelines.length === 0) {
+    return [
+      'Write clean, readable, and maintainable code',
+      'Follow TypeScript best practices',
+      'Add comprehensive error handling',
+      'Include JSDoc comments for public APIs',
+      'Write tests for new functionality',
+      'Update relevant documentation',
+    ];
+  }
+
+  return guidelines;
 }
 
 /**
