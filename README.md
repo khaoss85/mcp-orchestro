@@ -274,7 +274,7 @@ See **[Integration Guide](INTEGRATION_GUIDE.md)** for existing project setup.
 
 ```bash
 # In Claude Code terminal
-/plugin marketplace add pelleri/mcp-coder-expert
+/plugin marketplace add khaoss85/mcp-orchestro
 
 # Install the Orchestro Suite
 /plugin install orchestro-suite@orchestro-marketplace

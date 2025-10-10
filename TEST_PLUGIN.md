@@ -106,10 +106,10 @@ mcp__orchestro__decompose_story {
 **Soluzione**:
 ```bash
 # Verifica che il file esista
-ls -la /Users/pelleri/Documents/mcp-coder-expert/.claude-plugin/
+ls -la /Users/pelleri/Documents/mcp-orchestro/.claude-plugin/
 
 # Verifica JSON syntax
-cat /Users/pelleri/Documents/mcp-coder-expert/.claude-plugin/marketplace.json
+cat /Users/pelleri/Documents/mcp-orchestro/.claude-plugin/marketplace.json
 ```
 
 ### Plugin non si installa
@@ -117,10 +117,10 @@ cat /Users/pelleri/Documents/mcp-coder-expert/.claude-plugin/marketplace.json
 **Soluzione**:
 ```bash
 # Verifica struttura plugin
-ls -la /Users/pelleri/Documents/mcp-coder-expert/plugins/orchestro-suite/
+ls -la /Users/pelleri/Documents/mcp-orchestro/plugins/orchestro-suite/
 
 # Verifica JSON
-cat /Users/pelleri/Documents/mcp-coder-expert/plugins/orchestro-suite/.claude-plugin/plugin.json
+cat /Users/pelleri/Documents/mcp-orchestro/plugins/orchestro-suite/.claude-plugin/plugin.json
 ```
 
 ### Guardian Agents non appaiono
@@ -130,7 +130,7 @@ cat /Users/pelleri/Documents/mcp-coder-expert/plugins/orchestro-suite/.claude-pl
 2. Verifica che il plugin sia "enabled": `/plugin`
 3. Controlla che i file .md esistano:
    ```bash
-   ls /Users/pelleri/Documents/mcp-coder-expert/plugins/orchestro-suite/agents/
+   ls /Users/pelleri/Documents/mcp-orchestro/plugins/orchestro-suite/agents/
    ```
 
 ### MCP Tools non disponibili
@@ -164,7 +164,7 @@ Se tutto funziona correttamente:
 
 Una volta verificato il funzionamento locale:
 1. Commit su GitHub
-2. Altri utenti possono installare con: `/plugin marketplace add pelleri/mcp-coder-expert`
+2. Altri utenti possono installare con: `/plugin marketplace add khaoss85/mcp-orchestro`
 
 ---
 

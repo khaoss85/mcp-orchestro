@@ -47,7 +47,7 @@ Complete task orchestration system via `mcp__orchestro__*` tools:
 
 ```bash
 # Add the Orchestro marketplace
-/plugin marketplace add pelleri/mcp-coder-expert
+/plugin marketplace add khaoss85/mcp-orchestro
 
 # Install the plugin
 /plugin install orchestro-suite@orchestro-marketplace
@@ -181,8 +181,8 @@ mcp__orchestro__get_execution_prompt { "taskId": "..." }
 
 ## Support
 
-- **GitHub**: [pelleri/mcp-coder-expert](https://github.com/pelleri/mcp-coder-expert)
-- **Issues**: [Report a bug](https://github.com/pelleri/mcp-coder-expert/issues)
+- **GitHub**: [khaoss85/mcp-orchestro](https://github.com/khaoss85/mcp-orchestro)
+- **Issues**: [Report a bug](https://github.com/khaoss85/mcp-orchestro/issues)
 - **Documentation**: See main README for full docs
 
 ## License

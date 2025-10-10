@@ -25,8 +25,8 @@ mcp-coder-expert/
 ### Option 1: Test in Current Directory
 
 ```bash
-# From parent directory of mcp-coder-expert
-/plugin marketplace add ./mcp-coder-expert
+# From parent directory of mcp-orchestro
+/plugin marketplace add ./mcp-orchestro
 
 # Install the plugin
 /plugin install orchestro-suite@orchestro-marketplace
@@ -36,7 +36,7 @@ mcp-coder-expert/
 
 ```bash
 # Add marketplace with absolute path
-/plugin marketplace add /Users/pelleri/Documents/mcp-coder-expert
+/plugin marketplace add /Users/pelleri/Documents/mcp-orchestro
 
 # Install the plugin
 /plugin install orchestro-suite@orchestro-marketplace
@@ -46,7 +46,7 @@ mcp-coder-expert/
 
 ```bash
 # After pushing to GitHub
-/plugin marketplace add pelleri/mcp-coder-expert
+/plugin marketplace add khaoss85/mcp-orchestro
 
 # Install the plugin
 /plugin install orchestro-suite@orchestro-marketplace
@@ -161,7 +161,7 @@ git push origin v2.1.0
 
 Users can install with:
 ```bash
-/plugin marketplace add pelleri/mcp-coder-expert
+/plugin marketplace add khaoss85/mcp-orchestro
 /plugin install orchestro-suite@orchestro-marketplace
 ```
 
