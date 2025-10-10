@@ -5,6 +5,8 @@
 Transform product ideas into reality with an intelligent orchestration system that bridges Product Managers, Developers, and AI. Orchestro conducts the entire development symphony: task decomposition, dependency tracking, pattern learning, and real-time progress visualization.
 
 [![Status](https://img.shields.io/badge/status-production%20ready-brightgreen)]()
+[![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.khaoss85/orchestro)
+[![NPM Package](https://img.shields.io/npm/v/@khaoss85/orchestro?label=npm)](https://www.npmjs.com/package/@khaoss85/orchestro)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)]()
 [![MCP Tools](https://img.shields.io/badge/MCP%20Tools-60-purple)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
@@ -101,7 +103,33 @@ Transform product ideas into reality with an intelligent orchestration system th
 
 ## 🚀 Quick Start
 
-### Option 1: One-Command Install ⚡ (Recommended)
+### Option 1: From MCP Registry ⭐ (Recommended)
+
+**Orchestro is now in the [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.khaoss85/orchestro)!**
+
+```bash
+# Install via NPX (no global install needed)
+npx @khaoss85/orchestro@latest
+```
+
+**Or add to Claude Code config**:
+```json
+{
+  "mcpServers": {
+    "orchestro": {
+      "command": "npx",
+      "args": ["-y", "@khaoss85/orchestro@latest"],
+      "env": {
+        "DATABASE_URL": "your-supabase-connection-string"
+      }
+    }
+  }
+}
+```
+
+---
+
+### Option 2: One-Command Install ⚡
 
 ```bash
 npx @orchestro/init
@@ -155,8 +183,8 @@ node --version
 **Apply database schema:**
 ```bash
 # Clone this repo first
-git clone https://github.com/yourusername/orchestro.git
-cd orchestro
+git clone https://github.com/khaoss85/mcp-orchestro.git
+cd mcp-orchestro
 
 # Install dependencies
 npm install
@@ -283,7 +311,7 @@ See **[Integration Guide](INTEGRATION_GUIDE.md)** for existing project setup.
 ```
 
 **What you get:**
-- ✅ **Orchestro MCP Server** - 60 tools via `npx orchestro@latest` (no global install needed)
+- ✅ **Orchestro MCP Server** - 60 tools via `npx @khaoss85/orchestro@latest` (no global install needed)
 - ✅ **5 Guardian Agents** - database, API, architecture, test-maintainer, production-ready
 - ✅ **Auto-configured** - MCP server and agents ready to use
 - ✅ **Complete Documentation** - Setup guide included
@@ -793,7 +821,9 @@ We welcome contributions from PMs, Developers, and AI enthusiasts!
 
 ## 📝 Changelog
 
-### v2.2.0 (2025-10-04) - Current 🎉
+### v2.1.0 (2025-10-10) - Current 🎉
+- ✅ **Published to MCP Registry** - Now in [Official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.khaoss85/orchestro)
+- ✅ **NPM Package** - Published as `@khaoss85/orchestro` on npm
 - ✅ **60 MCP Tools** - Expanded from 27 to 60 production-ready tools
 - ✅ **Automatic Task Analysis** - decompose_story now auto-prepares analysis prompts (autoAnalyze=true default)
 - ✅ **Project Configuration System** - Complete tech stack, agents, tools management
@@ -804,7 +834,7 @@ We welcome contributions from PMs, Developers, and AI enthusiasts!
 - ✅ **Bug Fix** - Resolved SQL error in get_project_configuration
 - ✅ **Full Test Coverage** - All 60 tools tested and verified (96.7% success)
 
-### v2.1.0 (2025-10-03)
+### v2.0.0 (2025-10-03)
 - ✅ **Rebranded to Orchestro** - "Your AI Development Conductor"
 - ✅ **Pattern Analysis Tools** - 5 new MCP tools for failure detection
 - ✅ **Pattern Frequency** - Automatic tracking with database triggers
@@ -812,7 +842,7 @@ We welcome contributions from PMs, Developers, and AI enthusiasts!
 - ✅ **Task Metadata** - assignee, priority, tags fields
 - ✅ **PM-focused Documentation** - Updated for product owners
 
-### v2.0.0 (2025-10-02)
+### v1.5.0 (2025-10-02)
 - ✅ New workflow: MCP orchestrates, Claude Code analyzes
 - ✅ 3 execution tools: prepare, save_analysis, get_execution_prompt
 - ✅ tasks.metadata JSONB column
@@ -839,8 +869,8 @@ We welcome contributions from PMs, Developers, and AI enthusiasts!
 
 ## 📞 Support & Community
 
-- 📧 **Issues**: [GitHub Issues](https://github.com/yourusername/orchestro/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/yourusername/orchestro/discussions)
+- 📧 **Issues**: [GitHub Issues](https://github.com/khaoss85/mcp-orchestro/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/khaoss85/mcp-orchestro/discussions)
 - 📖 **Docs**: Comprehensive guides in the repo
 - 🌐 **Dashboard**: http://localhost:3000
 - 🐦 **Twitter**: [@orchestro_ai](https://twitter.com/orchestro_ai) *(Coming Soon)*
@@ -874,7 +904,9 @@ Transform product ideas into production code with AI orchestration
 ---
 
 **Status**: ✅ Production Ready (96.7% Test Coverage)
-**Version**: 2.2.0
+**Version**: 2.1.0
+**NPM**: [@khaoss85/orchestro](https://www.npmjs.com/package/@khaoss85/orchestro)
+**Registry**: [MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.khaoss85/orchestro)
 **MCP Tools**: 60
 **Made for**: PMs · Developers · Claude Code
 

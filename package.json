@@ -1,5 +1,5 @@
 {
-  "name": "orchestro",
+  "name": "@khaoss85/orchestro",
   "version": "2.1.0",
   "description": "Your AI Development Conductor - Intelligent task management for Claude Code",
   "type": "module",
@@ -39,6 +39,9 @@
   },
   "homepage": "https://github.com/khaoss85/mcp-orchestro#readme",
   "mcpName": "io.github.khaoss85/orchestro",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
     "@modelcontextprotocol/sdk": "^1.0.4",

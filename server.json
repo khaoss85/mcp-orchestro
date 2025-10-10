@@ -2,14 +2,14 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
   "name": "io.github.khaoss85/orchestro",
   "title": "Orchestro - Your AI Development Conductor",
-  "description": "Transform product ideas into reality with intelligent orchestration. Orchestro bridges Product Managers, Developers, and AI with task decomposition, dependency tracking, pattern learning, and real-time progress visualization. Features 60 MCP tools, AI-powered story decomposition, visual Kanban dashboard, and complete audit trail. Think Trello × Jira × AI - designed specifically for AI-assisted development.",
+  "description": "Your AI Development Conductor - 60 MCP tools for intelligent task orchestration",
   "version": "2.1.0",
   "homepage": "https://github.com/khaoss85/mcp-orchestro",
   "license": "MIT",
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "orchestro",
+      "identifier": "@khaoss85/orchestro",
       "version": "2.1.0",
       "transport": {
         "type": "stdio"
