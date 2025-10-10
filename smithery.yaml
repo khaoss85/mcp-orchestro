@@ -1,0 +1,21 @@
+runtime: typescript
+startCommand:
+  type: stdio
+configSchema:
+  type: object
+  required:
+    - supabaseUrl
+    - supabaseServiceKey
+  properties:
+    supabaseUrl:
+      type: string
+      description: Your Supabase project URL (e.g., https://your-project.supabase.co)
+      example: https://your-project.supabase.co
+    supabaseServiceKey:
+      type: string
+      description: Supabase service role key for backend operations
+      example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    anthropicApiKey:
+      type: string
+      description: (Optional) Anthropic API key for AI-powered suggestions and decomposition
+      example: sk-ant-api03-...
