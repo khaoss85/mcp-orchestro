@@ -4,7 +4,6 @@
   "description": "Your AI Development Conductor - Intelligent task management for Claude Code",
   "type": "module",
   "main": "dist/server.js",
-  "module": "./src/server.ts",
   "bin": {
     "orchestro": "./scripts/setup.js"
   },
