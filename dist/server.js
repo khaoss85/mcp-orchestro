@@ -5,7 +5,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextpro
 import { getProjectInfo } from "./tools/project.js";
 import { createTask, listTasks, updateTask, deleteTask, deleteUserStory, getTaskContext, getUserStories, getTasksByUserStory, safeDeleteTasksByStatus, getUserStoryHealth } from "./tools/task.js";
 import { listTemplates, listPatterns, listLearnings, renderTemplate, getRelevantKnowledge, addFeedback, getSimilarLearnings, getTopPatterns, getTrendingPatterns, getPatternStats, detectFailurePatterns, checkPatternRisk } from "./tools/knowledge.js";
-import { decomposeStory } from "./tools/decompose.js";
+import { intelligent_decompose_story, save_story_decomposition } from "./tools/intelligentDecompose.js";
 import { saveDependencies, getTaskDependencyGraph, getResourceUsage, getTaskConflicts } from "./tools/dependencies.js";
 import { prepareTaskForExecution } from "./tools/taskPreparation.js";
 import { saveTaskAnalysis, getExecutionPrompt } from "./tools/taskAnalysis.js";
@@ -285,21 +285,121 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 },
             },
             {
-                name: "decompose_story",
-                description: "Decomposes a user story into technical tasks using AI, with automatic dependency detection and complexity estimation. ⚠️ IMPORTANT: The tool response includes automatic workflow guidance (nextSteps field) for analyzing each created task. Follow the nextSteps and recommendedAnalysisOrder to analyze tasks efficiently. Set autoAnalyze=true to automatically prepare analysis prompts for all tasks.",
+                name: "intelligent_decompose_story",
+                description: "🚀 INTELLIGENT WORKFLOW: Generates a structured prompt for Claude Code to analyze the codebase and decompose a user story based on REAL project context. Claude Code will use Grep/Glob/Read to explore the codebase before creating tasks. Returns a prompt with instructions for Claude Code to follow.",
                 inputSchema: {
                     type: "object",
                     properties: {
                         userStory: {
                             type: "string",
-                            description: "The user story to decompose (e.g., 'User should be able to login with email')",
+                            description: "The user story to decompose intelligently with codebase context",
                         },
-                        autoAnalyze: {
-                            type: "boolean",
-                            description: "If true, automatically prepares analysis prompts for all tasks without dependencies (default: true)",
+                        projectId: {
+                            type: "string",
+                            description: "Project ID (optional, uses default project if not specified)",
                         },
                     },
                     required: ["userStory"],
+                },
+            },
+            {
+                name: "save_story_decomposition",
+                description: "Saves the decomposition analysis performed by Claude Code after exploring the codebase. Call this after intelligent_decompose_story once you've analyzed the codebase and created the task breakdown with real file paths and dependencies.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        projectId: {
+                            type: "string",
+                            description: "Project ID (optional)",
+                        },
+                        userStory: {
+                            type: "string",
+                            description: "The original user story",
+                        },
+                        analysis: {
+                            type: "object",
+                            description: "The complete analysis with tasks, risks, and recommendations",
+                            properties: {
+                                tasks: {
+                                    type: "array",
+                                    items: {
+                                        type: "object",
+                                        properties: {
+                                            title: { type: "string" },
+                                            description: { type: "string" },
+                                            complexity: { type: "string", enum: ["simple", "medium", "complex"] },
+                                            estimatedHours: { type: "number" },
+                                            dependencies: { type: "array", items: { type: "string" } },
+                                            tags: { type: "array", items: { type: "string" } },
+                                            category: {
+                                                type: "string",
+                                                enum: ["design_frontend", "backend_database", "test_fix"],
+                                            },
+                                            filesToModify: {
+                                                type: "array",
+                                                items: {
+                                                    type: "object",
+                                                    properties: {
+                                                        path: { type: "string" },
+                                                        reason: { type: "string" },
+                                                        risk: { type: "string", enum: ["low", "medium", "high"] },
+                                                    },
+                                                },
+                                            },
+                                            filesToCreate: {
+                                                type: "array",
+                                                items: {
+                                                    type: "object",
+                                                    properties: {
+                                                        path: { type: "string" },
+                                                        reason: { type: "string" },
+                                                    },
+                                                },
+                                            },
+                                            codebaseReferences: {
+                                                type: "array",
+                                                items: {
+                                                    type: "object",
+                                                    properties: {
+                                                        file: { type: "string" },
+                                                        description: { type: "string" },
+                                                        lines: { type: "string" },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                        required: ["title", "description", "complexity"],
+                                    },
+                                },
+                                overallComplexity: {
+                                    type: "string",
+                                    enum: ["simple", "medium", "complex"],
+                                },
+                                totalEstimatedHours: { type: "number" },
+                                architectureNotes: {
+                                    type: "array",
+                                    items: { type: "string" },
+                                },
+                                risks: {
+                                    type: "array",
+                                    items: {
+                                        type: "object",
+                                        properties: {
+                                            level: { type: "string", enum: ["low", "medium", "high"] },
+                                            description: { type: "string" },
+                                            mitigation: { type: "string" },
+                                        },
+                                    },
+                                },
+                                recommendations: {
+                                    type: "array",
+                                    items: { type: "string" },
+                                },
+                            },
+                            required: ["tasks", "overallComplexity", "totalEstimatedHours"],
+                        },
+                    },
+                    required: ["userStory", "analysis"],
                 },
             },
             {
@@ -1553,17 +1653,55 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
         };
     }
-    if (name === "decompose_story") {
-        const result = await decomposeStory(args.userStory, args.autoAnalyze);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(result, null, 2),
-                },
-            ],
-            isError: !result.success,
-        };
+    if (name === "intelligent_decompose_story") {
+        try {
+            const result = await intelligent_decompose_story(args);
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify(result, null, 2),
+                    },
+                ],
+                isError: !result.success,
+            };
+        }
+        catch (error) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({ success: false, error: error.message }, null, 2),
+                    },
+                ],
+                isError: true,
+            };
+        }
+    }
+    if (name === "save_story_decomposition") {
+        try {
+            const result = await save_story_decomposition(args);
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify(result, null, 2),
+                    },
+                ],
+                isError: !result.success,
+            };
+        }
+        catch (error) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({ success: false, error: error.message }, null, 2),
+                    },
+                ],
+                isError: true,
+            };
+        }
     }
     if (name === "add_feedback") {
         const result = await addFeedback(args);

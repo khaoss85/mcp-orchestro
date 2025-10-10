@@ -35,9 +35,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/orchestro.git"
+    "url": "https://github.com/khaoss85/mcp-orchestro.git"
   },
-  "homepage": "https://github.com/yourusername/orchestro#readme",
+  "homepage": "https://github.com/khaoss85/mcp-orchestro#readme",
+  "mcpName": "io.github.khaoss85/orchestro",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
     "@modelcontextprotocol/sdk": "^1.0.4",
