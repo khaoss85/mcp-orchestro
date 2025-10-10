@@ -9,7 +9,7 @@ export async function getTaskHistory(taskId) {
     const { data, error } = await supabase
         .from('event_queue')
         .select('*')
-        .or(`payload->task->id.eq.${taskId},payload->taskId.eq.${taskId}`)
+        .or(`payload->task->id.eq."${taskId}",payload->taskId.eq."${taskId}"`)
         .order('created_at', { ascending: true });
     if (error) {
         console.error('Failed to fetch task history:', error);
@@ -146,7 +146,7 @@ export async function getTaskSnapshot(taskId, timestamp) {
     const { data } = await supabase
         .from('event_queue')
         .select('*')
-        .or(`payload->task->id.eq.${taskId},payload->taskId.eq.${taskId}`)
+        .or(`payload->task->id.eq."${taskId}",payload->taskId.eq."${taskId}"`)
         .lte('created_at', timestamp.toISOString())
         .order('created_at', { ascending: true });
     if (!data || data.length === 0) {

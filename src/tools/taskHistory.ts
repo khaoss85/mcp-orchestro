@@ -45,7 +45,7 @@ export async function getTaskHistory(taskId: string): Promise<HistoryEvent[]> {
   const { data, error } = await supabase
     .from('event_queue')
     .select('*')
-    .or(`payload->task->id.eq.${taskId},payload->taskId.eq.${taskId}`)
+    .or(`payload->task->id.eq."${taskId}",payload->taskId.eq."${taskId}"`)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -210,7 +210,7 @@ export async function getTaskSnapshot(taskId: string, timestamp: Date) {
   const { data } = await supabase
     .from('event_queue')
     .select('*')
-    .or(`payload->task->id.eq.${taskId},payload->taskId.eq.${taskId}`)
+    .or(`payload->task->id.eq."${taskId}",payload->taskId.eq."${taskId}"`)
     .lte('created_at', timestamp.toISOString())
     .order('created_at', { ascending: true });
 
