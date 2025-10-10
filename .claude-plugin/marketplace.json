@@ -1,0 +1,35 @@
+{
+  "name": "orchestro-marketplace",
+  "owner": {
+    "name": "Orchestro Team",
+    "email": "contact@orchestro.dev"
+  },
+  "metadata": {
+    "description": "Official marketplace for Orchestro AI development tools and guardian agents",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "orchestro-suite",
+      "source": "./plugins/orchestro-suite",
+      "description": "Complete AI task orchestration system with 50+ MCP tools and 5 guardian agents (database, API, architecture, test-maintainer, production-ready code reviewer)",
+      "version": "2.1.0",
+      "author": {
+        "name": "Orchestro Team",
+        "email": "contact@orchestro.dev"
+      },
+      "homepage": "https://github.com/pelleri/mcp-coder-expert",
+      "repository": "https://github.com/pelleri/mcp-coder-expert",
+      "license": "MIT",
+      "keywords": [
+        "orchestro",
+        "task-management",
+        "ai-workflow",
+        "guardian-agents",
+        "supabase",
+        "productivity"
+      ],
+      "category": "productivity"
+    }
+  ]
+}

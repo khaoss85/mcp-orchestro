@@ -268,6 +268,57 @@ See **[Integration Guide](INTEGRATION_GUIDE.md)** for existing project setup.
 
 ---
 
+### Option 4: Claude Code Plugin 🎁 (Easiest!)
+
+**New!** Install Orchestro as a Claude Code plugin with one command:
+
+```bash
+# In Claude Code terminal
+/plugin marketplace add pelleri/mcp-coder-expert
+
+# Install the Orchestro Suite
+/plugin install orchestro-suite@orchestro-marketplace
+
+# Restart Claude Code when prompted
+```
+
+**What you get:**
+- ✅ **Orchestro MCP Server** - 60 tools via `npx orchestro@latest` (no global install needed)
+- ✅ **5 Guardian Agents** - database, API, architecture, test-maintainer, production-ready
+- ✅ **Auto-configured** - MCP server and agents ready to use
+- ✅ **Complete Documentation** - Setup guide included
+
+**Prerequisites:**
+- Supabase account (see Option 2 for setup)
+- Environment variables set:
+  ```bash
+  export SUPABASE_URL="https://your-project.supabase.co"
+  export SUPABASE_SERVICE_KEY="your-service-key"
+  export ANTHROPIC_API_KEY="your-key"
+  ```
+
+**Verify installation:**
+```bash
+# Check agents
+/agents
+# Should show: database-guardian, api-guardian, architecture-guardian,
+#              test-maintainer, production-ready-code-reviewer
+
+# Test MCP tools
+mcp__orchestro__get_project_info
+mcp__orchestro__list_tasks
+```
+
+**Plugin includes:**
+- MCP server configuration (`.mcp.json`)
+- 5 specialized guardian agents
+- Complete README with usage examples
+- Troubleshooting guide
+
+See **[plugins/orchestro-suite/README.md](plugins/orchestro-suite/README.md)** for detailed plugin documentation.
+
+---
+
 ## 🎭 Use Cases
 
 ### 📱 For Product Managers

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "orchestro": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "orchestro@latest"
+      ],
+      "env": {
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_SERVICE_KEY": "${SUPABASE_SERVICE_KEY}",
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
+      }
+    }
+  }
+}

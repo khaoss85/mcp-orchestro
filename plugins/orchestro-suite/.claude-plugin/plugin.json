@@ -1,0 +1,24 @@
+{
+  "name": "orchestro-suite",
+  "version": "2.1.0",
+  "description": "AI Development Conductor - Intelligent task management system with 50+ MCP tools and 5 specialized guardian agents for Claude Code",
+  "author": {
+    "name": "Orchestro Team",
+    "email": "contact@orchestro.dev"
+  },
+  "homepage": "https://github.com/pelleri/mcp-coder-expert",
+  "repository": "https://github.com/pelleri/mcp-coder-expert",
+  "license": "MIT",
+  "keywords": [
+    "orchestro",
+    "task-management",
+    "ai-workflow",
+    "claude-code",
+    "mcp",
+    "supabase",
+    "guardian-agents",
+    "productivity",
+    "development-workflow"
+  ],
+  "category": "productivity"
+}
