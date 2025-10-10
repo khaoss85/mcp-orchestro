@@ -110,6 +110,32 @@ mcp__orchestro__add_feedback {
 }
 ```
 
+## Web Dashboard (Optional)
+
+Orchestro includes a visual web dashboard for task management and monitoring:
+
+```bash
+# Start the dashboard (auto-opens browser at localhost:3000)
+npm run dashboard
+```
+
+The dashboard provides:
+
+- **Visual Kanban Board** - Drag-and-drop task management across statuses
+- **User Story Tracking** - Visual grouping of tasks by user story
+- **Real-time Updates** - Live synchronization via Socket.io
+- **Task Dependencies** - Visual dependency graph and execution order
+- **Analytics** - Task history, patterns, and team velocity
+- **Guardian Activity** - Monitor guardian agent interventions
+
+The dashboard is particularly useful for:
+- Planning sprints and organizing work
+- Tracking progress across multiple user stories
+- Identifying bottlenecks in task dependencies
+- Reviewing team patterns and learnings
+
+**Note**: The dashboard automatically opens in your browser when started. If you prefer not to use the visual interface, all functionality is available via MCP tools directly in Claude Code.
+
 ## Configuration
 
 ### Supabase Setup
