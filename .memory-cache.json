@@ -1,0 +1,102 @@
+{
+  "entities": [
+    {
+      "name": "Orchestro Project",
+      "entityType": "project",
+      "observations": [
+        "AI-assisted development conductor",
+        "Rebranded from mcp-coder-expert to Orchestro",
+        "Version 2.1.0",
+        "Features: Task management, User stories, Knowledge Hub, Analytics",
+        "27 MCP tools available"
+      ]
+    },
+    {
+      "name": "Web Dashboard",
+      "entityType": "technology",
+      "observations": [
+        "Built with Next.js 15.5.4",
+        "Uses Server Components and API Routes",
+        "Supabase for database operations",
+        "WebSocket real-time updates via socket.io",
+        "Comprehensive API routes for all operations"
+      ]
+    },
+    {
+      "name": "Knowledge Hub",
+      "entityType": "feature",
+      "observations": [
+        "Manages learnings, patterns, and templates",
+        "Analytics dashboard with recharts visualizations",
+        "Real-time filtering and search capabilities",
+        "Four main pages: Overview, Learnings, Patterns, Templates",
+        "Memory Graph visualization with @xyflow/react"
+      ]
+    },
+    {
+      "name": "Claude Code Integration",
+      "entityType": "technology",
+      "observations": [
+        "MCP protocol integration",
+        "5 guardian agents configured",
+        "7 MCP tools connected",
+        "Sub-agents: architecture-guardian, api-guardian, test-maintainer, database-guardian, production-ready-code-reviewer"
+      ]
+    },
+    {
+      "name": "Guardian Agents",
+      "entityType": "tooling",
+      "observations": [
+        "architecture-guardian: Prevents code duplication and ensures consistency",
+        "api-guardian: Maintains frontend-backend sync",
+        "database-guardian: Ensures schema alignment",
+        "test-maintainer: Manages test suites and cleanup",
+        "production-ready-code-reviewer: Verifies production readiness"
+      ]
+    },
+    {
+      "name": "MCP Tools",
+      "entityType": "tooling",
+      "observations": [
+        "27 tools for task management, decomposition, and analysis",
+        "Knowledge system tools for patterns, learnings, templates",
+        "Dependency analysis and execution order calculation",
+        "Project configuration and tech stack management"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "from": "Web Dashboard",
+      "to": "Orchestro Project",
+      "relationType": "is component of"
+    },
+    {
+      "from": "Knowledge Hub",
+      "to": "Web Dashboard",
+      "relationType": "is feature of"
+    },
+    {
+      "from": "Claude Code Integration",
+      "to": "Orchestro Project",
+      "relationType": "integrates with"
+    },
+    {
+      "from": "Guardian Agents",
+      "to": "Claude Code Integration",
+      "relationType": "provides automation for"
+    },
+    {
+      "from": "MCP Tools",
+      "to": "Orchestro Project",
+      "relationType": "extends functionality of"
+    }
+  ],
+  "metadata": {
+    "lastUpdated": "2025-10-12T15:16:56.629Z",
+    "query": "orchestro",
+    "totalEntities": 6,
+    "totalRelations": 5,
+    "totalObservations": 28
+  }
+}
